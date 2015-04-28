@@ -9,9 +9,15 @@ import (
 )
 
 type BoltBucket struct {
-	name    string
-	pairs   map[string]string
-	buckets []BoltBucket
+	name     string
+	pairs    []BoltPair
+	buckets  []BoltBucket
+	expanded bool
+}
+
+type BoltPair struct {
+	key string
+	val string
 }
 
 // A Database, basically a collection of buckets
@@ -87,26 +93,28 @@ func refreshDatabase() {
 	memBolt = new(BoltDB)
 	db.View(func(tx *bolt.Tx) error {
 		tx.ForEach(func(nm []byte, b *bolt.Bucket) error {
-			bb := readBucket(b)
+			bb := readBucket(*b)
 			bb.name = string(nm)
-			memBolt.buckets = append(memBolt.buckets, *bb)
+			bb.expanded = true
+			memBolt.buckets = append(memBolt.buckets, bb)
 			return nil
 		})
 		return nil
 	})
 }
 
-func readBucket(b *bolt.Bucket) *BoltBucket {
-	bb := new(BoltBucket)
+func readBucket(b bolt.Bucket) BoltBucket {
+	var bb *BoltBucket
 	b.ForEach(func(k, v []byte) error {
 		if v == nil {
-			tb := readBucket(b.Bucket(k))
+			tb := readBucket(*b.Bucket(k))
 			tb.name = string(k)
-			bb.buckets = append(bb.buckets, *tb)
+			bb.buckets = append(bb.buckets, tb)
 		} else {
-			bb.pairs[string(k)] = string(v)
+			tp := BoltPair{string(k), string(v)}
+			bb.pairs = append(bb.pairs, tp)
 		}
 		return nil
 	})
-	return bb
+	return *bb
 }

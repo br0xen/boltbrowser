@@ -18,7 +18,7 @@ func defaultScreensForData(memBolt *BoltDB) []Screen {
 	var view_port ViewPort
 	var cursor Cursor
 
-	browser_screen := BrowserScreen{*memBolt, cursor, view_port}
+	browser_screen := BrowserScreen{*memBolt, cursor, view_port, ""}
 	about_screen := AboutScreen(0)
 	screens := [...]Screen{
 		&browser_screen,

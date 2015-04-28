@@ -54,7 +54,7 @@ func (screen *AboutScreen) drawScreen(style Style) {
 			bg := default_bg
 			displayRune := ' '
 			if runeValue != ' ' {
-				bg = termbox.Attribute(125)
+				//bg = termbox.Attribute(125)
 				displayRune = runeValue
 				termbox.SetCell(x_pos, y_pos, displayRune, default_fg, bg)
 			}
