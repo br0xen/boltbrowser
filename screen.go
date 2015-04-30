@@ -14,11 +14,11 @@ const (
 	EXIT_SCREEN_INDEX
 )
 
-func defaultScreensForData(memBolt *BoltDB) []Screen {
+func defaultScreensForData(db *BoltDB) []Screen {
 	var view_port ViewPort
 	var cursor Cursor
 
-	browser_screen := BrowserScreen{*memBolt, cursor, view_port, ""}
+	browser_screen := BrowserScreen{db: db, cursor: cursor, view_port: view_port}
 	about_screen := AboutScreen(0)
 	screens := [...]Screen{
 		&browser_screen,

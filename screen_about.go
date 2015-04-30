@@ -71,12 +71,6 @@ func (screen *AboutScreen) drawScreen(style Style) {
 
 		{"g", "goto top"},
 		{"G", "goto bottom"},
-
-		{"ctrl-e", "scroll down"},
-		{"ctrl-y", "scroll up"},
-
-		{"ctrl-f", "page down"},
-		{"ctrl-b", "page up"},
 	}
 
 	commands2 := [...]Command{
@@ -87,7 +81,7 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		{"?", "this screen"},
 		{"q", "quit program"},
 	}
-	x_pos = start_x + 3
+	x_pos = start_x + 20
 	y_pos++
 
 	drawCommandsAtPoint(commands1[:], x_pos, y_pos+1, style)
