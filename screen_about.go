@@ -64,13 +64,15 @@ func (screen *AboutScreen) drawScreen(style Style) {
 	}
 
 	commands1 := [...]Command{
-		{"h", "close parent"},
-		{"j", "down"},
-		{"k", "up"},
-		{"l", "open item"},
+		{"h,←", "close parent"},
+		{"j,↓", "down"},
+		{"k,↑", "up"},
+		{"l,→", "open item"},
 
 		{"g", "goto top"},
 		{"G", "goto bottom"},
+		{"ctrl+f", "jump half-screen down"},
+		{"ctrl+b", "jump half-screen up"},
 	}
 
 	commands2 := [...]Command{

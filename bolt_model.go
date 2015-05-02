@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"github.com/boltdb/bolt"
 	"strings"
 )
@@ -266,11 +267,10 @@ func deleteKey(path []string) error {
 			return errors.New("deleteKey: Invalid Path")
 		}
 	})
-	refreshDatabase()
 	return err
 }
 
-func refreshDatabase() {
+func refreshDatabase() *BoltDB {
 	// Reload the database into memBolt
 	memBolt = new(BoltDB)
 	db.View(func(tx *bolt.Tx) error {
@@ -287,6 +287,7 @@ func refreshDatabase() {
 			return err
 		})
 	})
+	return memBolt
 }
 
 func readBucket(b *bolt.Bucket) (*BoltBucket, error) {
@@ -319,4 +320,84 @@ func updatePaths(b *BoltBucket) {
 	for i := range b.pairs {
 		b.pairs[i].path = append(b.path, b.pairs[i].key)
 	}
+}
+
+/*
+func renameBucket(path []string, name string) error {
+	err := db.Update(func(tx *bolt.Tx) error {
+		// len(b.path)-1 is the key we need to delete, the rest are buckets leading to that key
+		b := tx.Bucket([]byte(path[0]))
+		if b != nil {
+			if len(path) > 1 {
+				for i := range path[1 : len(path)-1] {
+					b = b.Bucket([]byte(path[i+1]))
+					if b == nil {
+						return errors.New("updatePairValue: Invalid Path")
+					}
+				}
+			}
+			// Now update the last key in the path
+			err := b.Put([]byte(path[len(path)-1]), []byte(v))
+			return err
+		} else {
+			return errors.New("renameBucket: Invalid Path")
+		}
+	})
+	refreshDatabase()
+	return err
+}
+*/
+func updatePairValue(path []string, v string) error {
+	err := db.Update(func(tx *bolt.Tx) error {
+		// len(b.path)-1 is the key we need to delete, the rest are buckets leading to that key
+		b := tx.Bucket([]byte(path[0]))
+		if b != nil {
+			if len(path) > 1 {
+				for i := range path[1 : len(path)-1] {
+					b = b.Bucket([]byte(path[i+1]))
+					if b == nil {
+						return errors.New("updatePairValue: Invalid Path")
+					}
+				}
+			}
+			// Now update the last key in the path
+			err := b.Put([]byte(path[len(path)-1]), []byte(v))
+			return err
+		} else {
+			return errors.New("updatePairValue: Invalid Path")
+		}
+	})
+	return err
+}
+
+func insertBucket(path []string, n string) error {
+	// Inserts a new bucket named 'n' at 'path[len(path)-2]
+	err := db.Update(func(tx *bolt.Tx) error {
+		if len(path) == 1 {
+			// insert at root
+			_, err := tx.CreateBucket([]byte(n))
+			if err != nil {
+				return fmt.Errorf("insertBucket: %s", err)
+			}
+		} else if len(path) > 1 {
+			var err error
+			b := tx.Bucket([]byte(path[0]))
+			if b != nil {
+				if len(path) > 2 {
+					for i := range path[1 : len(path)-2] {
+						b = b.Bucket([]byte(path[i+1]))
+						if b == nil {
+							return fmt.Errorf("insertBucket: %s", err)
+						}
+					}
+				}
+				_, err := b.CreateBucket([]byte(n))
+				if err != nil {
+					return fmt.Errorf("insertBucket: %s", err)
+				}
+			}
+		}
+		return nil
+	})
+	return err
 }
