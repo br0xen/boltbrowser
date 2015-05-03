@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/nsf/termbox-go"
+	"gogs.bullercodeworks.com/brian/termbox-util"
 )
 
 type Command struct {
@@ -15,8 +16,8 @@ type AboutScreen int
 func drawCommandsAtPoint(commands []Command, x int, y int, style Style) {
 	x_pos, y_pos := x, y
 	for index, cmd := range commands {
-		drawStringAtPoint(fmt.Sprintf("%6s", cmd.key), x_pos, y_pos, style.default_fg, style.default_bg)
-		drawStringAtPoint(cmd.description, x_pos+8, y_pos, style.default_fg, style.default_bg)
+		termbox_util.DrawStringAtPoint(fmt.Sprintf("%6s", cmd.key), x_pos, y_pos, style.default_fg, style.default_bg)
+		termbox_util.DrawStringAtPoint(cmd.description, x_pos+8, y_pos, style.default_fg, style.default_bg)
 		y_pos++
 		if index > 2 && index%2 == 1 {
 			y_pos++

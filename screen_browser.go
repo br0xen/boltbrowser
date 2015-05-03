@@ -22,27 +22,19 @@ type BrowserScreen struct {
 	current_type   int
 	message        string
 	mode           BrowserMode
-	input_modal    *InputModal
+	input_modal    *termbox_util.InputModal
 }
 
 type BrowserMode int
 
 const (
-	MODE_BROWSE = iota
-	MODE_CHANGE_VAL
-	MODE_INSERT_BUCKET
-	MODE_INSERT_PAIR
+	MODE_BROWSE          = 16 // 001 0000
+	MODE_CHANGE_VAL      = 32 // 010 0000
+	MODE_INSERT_BUCKET   = 48 // 011 0000
+	MODE_INSERT_PAIR     = 64 // 100 0000
+	MODE_INSERT_PAIR_KEY = 65 // 100 0001
+	MODE_INSERT_PAIR_VAL = 66 // 100 0010
 )
-
-type InputModal struct {
-	x              int
-	y              int
-	width          int
-	height         int
-	text           string
-	curr_val       string
-	current_cursor int
-}
 
 type BoltType int
 
@@ -52,12 +44,15 @@ const (
 )
 
 func (screen *BrowserScreen) handleKeyEvent(event termbox.Event) int {
+	if screen.mode == 0 {
+		screen.mode = MODE_BROWSE
+	}
 	if screen.mode == MODE_BROWSE {
 		return screen.handleBrowseKeyEvent(event)
 	} else if screen.mode == MODE_CHANGE_VAL {
 		return screen.handleInputKeyEvent(event)
 	} else if screen.mode == MODE_INSERT_BUCKET {
-		return screen.handleInsertBucketKeyEvent(event)
+		return screen.handleInsertItemEvent(event)
 	}
 	return BROWSER_SCREEN_INDEX
 }
@@ -97,24 +92,25 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 		screen.moveCursorUp()
 
 	} else if event.Ch == 'p' {
-		screen.insertPair()
+		screen.startInsertItem(TYPE_PAIR)
 
 	} else if event.Ch == 'b' {
-		screen.insertBucket()
+		screen.startInsertItem(TYPE_BUCKET)
 
 	} else if event.Ch == 'e' {
-		_, p, _ := screen.db.getGenericFromPath(screen.current_path)
-		if p != nil {
-			screen.createEditModal()
+		b, p, _ := screen.db.getGenericFromPath(screen.current_path)
+		if b != nil {
+			screen.message = "Cannot edit a bucket yet"
+		} else if p != nil {
+			screen.startEditItem(TYPE_PAIR)
 		}
-		screen.message = "Cannot edit a bucket yet"
 
 	} else if event.Key == termbox.KeyEnter {
 		b, p, _ := screen.db.getGenericFromPath(screen.current_path)
 		if b != nil {
 			toggleOpenBucket(screen.current_path)
 		} else if p != nil {
-			screen.createEditModal()
+			screen.startEditItem(TYPE_PAIR)
 		}
 
 	} else if event.Ch == 'l' || event.Key == termbox.KeyArrowRight {
@@ -123,7 +119,7 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 		if b != nil {
 			toggleOpenBucket(screen.current_path)
 		} else if p != nil {
-			screen.createEditModal()
+			screen.startEditItem(TYPE_PAIR)
 		} else {
 			screen.message = "Not sure what to do here..."
 		}
@@ -156,58 +152,59 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 	if event.Key == termbox.KeyEsc {
 		screen.mode = MODE_BROWSE
-	} else if event.Key == termbox.KeyEnter {
-		b, p, e := screen.db.getGenericFromPath(screen.current_path)
-		if e == nil {
-			if b != nil {
-				screen.message = "Cannot edit bucket"
-			} else if p != nil {
-				if err := updatePairValue(screen.current_path, screen.input_modal.curr_val); err != nil {
-					screen.message = fmt.Sprint(err)
-				} else {
-					p.val = screen.input_modal.curr_val
-				}
-				screen.mode = MODE_BROWSE
-			}
-		}
-	} else if event.Key == termbox.KeyBackspace || event.Key == termbox.KeyBackspace2 || event.Key == termbox.KeyDelete {
-		screen.input_modal.curr_val = screen.input_modal.curr_val[:len(screen.input_modal.curr_val)-1]
+		screen.input_modal.Clear()
 	} else {
-		screen.input_modal.curr_val += string(event.Ch)
+		screen.input_modal.HandleKeyPress(event)
+		if screen.input_modal.IsDone() {
+			new_val := screen.input_modal.GetValue()
+			_, p, _ := screen.db.getGenericFromPath(screen.current_path)
+			if p != nil {
+				if updatePairValue(screen.current_path, new_val) != nil {
+					screen.message = "Error occurred updating Pair."
+				} else {
+					p.val = new_val
+					screen.message = "Pair updated!"
+				}
+			}
+			screen.mode = MODE_BROWSE
+			screen.input_modal.Clear()
+		}
 	}
 	return BROWSER_SCREEN_INDEX
 }
 
-func (screen *BrowserScreen) handleInsertBucketKeyEvent(event termbox.Event) int {
+func (screen *BrowserScreen) handleInsertItemEvent(event termbox.Event) int {
 	if event.Key == termbox.KeyEsc {
 		screen.mode = MODE_BROWSE
-	} else if event.Key == termbox.KeyEnter {
-		b, p, e := screen.db.getGenericFromPath(screen.current_path)
-		if e == nil {
-			if b != nil {
-				if err := insertBucket(screen.current_path, screen.input_modal.curr_val); err != nil {
-					screen.message = fmt.Sprint(err)
-				} else {
-					if b.parent != nil {
-						//b.parent.buckets = append(b.parent.buckets, BoltBucket{name: screen.input_modal.curr_val
-					} else {
-						//screen.db.buckets = append(screen.db.buckets, BoltBucket{
+		/*
+			} else if event.Key == termbox.KeyEnter {
+				b, p, e := screen.db.getGenericFromPath(screen.current_path)
+				if e == nil {
+					if b != nil {
+						if err := insertBucket(screen.current_path, screen.input_modal.curr_val); err != nil {
+							screen.message = fmt.Sprint(err)
+						} else {
+							if b.parent != nil {
+								//b.parent.buckets = append(b.parent.buckets, BoltBucket{name: screen.input_modal.curr_val
+							} else {
+								//screen.db.buckets = append(screen.db.buckets, BoltBucket{
+							}
+						}
+						screen.mode = MODE_BROWSE
+					} else if p != nil {
+						if err := updatePairValue(screen.current_path, screen.input_modal.curr_val); err != nil {
+							screen.message = fmt.Sprint(err)
+						} else {
+							p.val = screen.input_modal.curr_val
+						}
+						screen.mode = MODE_BROWSE
 					}
 				}
-				screen.mode = MODE_BROWSE
-			} else if p != nil {
-				if err := updatePairValue(screen.current_path, screen.input_modal.curr_val); err != nil {
-					screen.message = fmt.Sprint(err)
-				} else {
-					p.val = screen.input_modal.curr_val
-				}
-				screen.mode = MODE_BROWSE
-			}
-		}
-	} else if event.Key == termbox.KeyBackspace || event.Key == termbox.KeyBackspace2 || event.Key == termbox.KeyDelete {
-		screen.input_modal.curr_val = screen.input_modal.curr_val[:len(screen.input_modal.curr_val)-1]
-	} else {
-		screen.input_modal.curr_val += string(event.Ch)
+			} else if event.Key == termbox.KeyBackspace || event.Key == termbox.KeyBackspace2 || event.Key == termbox.KeyDelete {
+				screen.input_modal.curr_val = screen.input_modal.curr_val[:len(screen.input_modal.curr_val)-1]
+			} else {
+				screen.input_modal.curr_val += string(event.Ch)
+		*/
 	}
 	return BROWSER_SCREEN_INDEX
 }
@@ -284,31 +281,9 @@ func (screen *BrowserScreen) drawScreen(style Style) {
 	screen.drawRightPane(style)
 	screen.drawHeader(style)
 	screen.drawFooter(style)
-	if screen.mode == MODE_CHANGE_VAL {
-		screen.drawInput(style)
+	if screen.mode == MODE_CHANGE_VAL || screen.mode == MODE_INSERT_BUCKET || screen.mode&MODE_INSERT_PAIR == MODE_INSERT_PAIR {
+		screen.input_modal.Draw()
 	}
-}
-
-func (screen *BrowserScreen) drawInput(style Style) {
-	box_x := screen.input_modal.x
-	box_y := screen.input_modal.y
-	box_width := screen.input_modal.width
-	box_height := screen.input_modal.height
-
-	termbox_util.FillWithChar(' ', box_x, box_y, box_x+box_width,
-		box_y+box_height, style.default_fg, style.default_bg,
-	)
-	termbox_util.DrawBorder(box_x, box_y, box_x+box_width, box_y+box_height, style.default_fg, style.default_bg)
-
-	termbox_util.DrawStringAtPoint(screen.input_modal.text, box_x+1,
-		box_y+1, style.default_fg|termbox.AttrBold, style.default_bg|termbox.AttrBold,
-	)
-	termbox_util.DrawBorder(box_x+2, box_y+2, box_x+box_width-2, box_y+4, style.default_fg, style.default_bg)
-
-	termbox_util.DrawStringAtPoint(screen.input_modal.curr_val, box_x+2, box_y+3, style.title_fg, style.title_bg)
-	termbox.SetCell(box_x+1+len(screen.input_modal.curr_val)+1, box_y+1, ' ', style.title_bg, style.title_fg)
-
-	termbox_util.DrawStringAtPoint(termbox_util.AlignText("'Enter' to Accept, 'ESC' to cancel", box_width-2, ALIGN_CENTER), box_x+2, box_y+5, style.default_fg, style.default_bg)
 }
 
 func (screen *BrowserScreen) drawHeader(style Style) {
@@ -446,23 +421,34 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 	return 1
 }
 
-func (screen *BrowserScreen) createEditModal() bool {
+func (screen *BrowserScreen) startEditItem(tp BoltType) bool {
 	b, p, e := screen.db.getGenericFromPath(screen.current_path)
 	if e == nil {
 		w, h := termbox.Size()
 		inp_w, inp_h := (w / 2), 6
 		inp_x, inp_y := ((w / 2) - (inp_w / 2)), ((h / 2) - inp_h)
-		mod := InputModal{x: inp_x, y: inp_y, width: inp_w, height: inp_h}
+		mod := termbox_util.CreateInputModal("", inp_x, inp_y, inp_w, inp_h, termbox.ColorWhite, termbox.ColorBlack)
 		if b != nil {
-			mod.text = termbox_util.AlignText(fmt.Sprintf("Rename Bucket '%s' to:", b.name), inp_w, ALIGN_CENTER)
-			mod.curr_val = b.name
+			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Rename Bucket '%s' to:", b.name), inp_w, termbox_util.ALIGN_CENTER))
+			mod.SetValue(b.name)
 		} else if p != nil {
-			mod.text = termbox_util.AlignText(fmt.Sprintf("Input new value for '%s':", p.key), inp_w, ALIGN_CENTER)
-			mod.curr_val = p.val
+			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Input new value for '%s'", p.key), inp_w, termbox_util.ALIGN_CENTER))
+			mod.SetValue(p.val)
 		}
-		screen.input_modal = &mod
+		screen.input_modal = mod
 		screen.mode = MODE_CHANGE_VAL
 		return true
+	}
+	return false
+}
+
+func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
+	if tp == TYPE_BUCKET {
+		screen.mode = MODE_INSERT_BUCKET
+
+	} else if tp == TYPE_PAIR {
+		screen.mode = MODE_INSERT_PAIR
+
 	}
 	return false
 }
@@ -473,10 +459,10 @@ func (screen *BrowserScreen) insertBucket() bool {
 	w, h := termbox.Size()
 	inp_w, inp_h := (w / 2), 6
 	inp_x, inp_y := ((w / 2) - (inp_w / 2)), ((h / 2) - inp_h)
-	mod := InputModal{x: inp_x, y: inp_y, width: inp_w, height: inp_h}
-	mod.text = termbox_util.AlignText("New Bucket Name:", inp_w, ALIGN_CENTER)
-	mod.curr_val = ""
-	screen.input_modal = &mod
+	mod := termbox_util.CreateInputModal("", inp_x, inp_y, inp_w, inp_h, termbox.ColorWhite, termbox.ColorBlack)
+	mod.SetTitle(termbox_util.AlignText("New Bucket Name:", inp_w, termbox_util.ALIGN_CENTER))
+	mod.SetValue("")
+	screen.input_modal = mod
 	screen.mode = MODE_INSERT_BUCKET
 	return true
 	//}

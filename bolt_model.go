@@ -12,6 +12,22 @@ type BoltDB struct {
 	buckets []BoltBucket
 }
 
+type BoltBucket struct {
+	name     string
+	path     []string
+	pairs    []BoltPair
+	buckets  []BoltBucket
+	parent   *BoltBucket
+	expanded bool
+}
+
+type BoltPair struct {
+	path   []string
+	parent *BoltBucket
+	key    string
+	val    string
+}
+
 func (bd *BoltDB) getDepthFromPath(path []string) int {
 	depth := 0
 	b, p, err := bd.getGenericFromPath(path)
@@ -186,15 +202,6 @@ func (bd *BoltDB) getBucket(k string) (*BoltBucket, error) {
 	return nil, errors.New("Bucket Not Found")
 }
 
-type BoltBucket struct {
-	name     string
-	path     []string
-	pairs    []BoltPair
-	buckets  []BoltBucket
-	parent   *BoltBucket
-	expanded bool
-}
-
 func (b *BoltBucket) getBucket(k string) (*BoltBucket, error) {
 	for i := range b.buckets {
 		if b.buckets[i].name == k {
@@ -211,13 +218,6 @@ func (b *BoltBucket) getPair(k string) (*BoltPair, error) {
 		}
 	}
 	return nil, errors.New("Pair Not Found")
-}
-
-type BoltPair struct {
-	path   []string
-	parent *BoltBucket
-	key    string
-	val    string
 }
 
 func toggleOpenBucket(path []string) error {
