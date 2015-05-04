@@ -60,6 +60,38 @@ func (bd *BoltDB) getGenericFromPath(path []string) (*BoltBucket, *BoltPair, err
 	return nil, nil, errors.New("Invalid Path")
 }
 
+func (bd *BoltDB) removeGenericAtPath(path []string) error {
+	b, p, err := bd.getGenericFromPath(path)
+	if err != nil {
+		return err
+	}
+	if p != nil {
+		pb := p.parent
+		for i := range pb.pairs {
+			if pb.pairs[i-1].key == p.key {
+				pb.pairs = append(pb.pairs[:i-1], pb.pairs[i+1:]...)
+			}
+		}
+	}
+	if b != nil {
+		pb := b.parent
+		if pb == nil {
+			for i := range bd.buckets {
+				if bd.buckets[i-1].name == b.name {
+					bd.buckets = append(bd.buckets[:i-1], bd.buckets[i+1:]...)
+				}
+			}
+		} else {
+			for i := range pb.buckets {
+				if pb.buckets[i-1].name == b.name {
+					pb.buckets = append(pb.buckets[:i-1], pb.buckets[i+1:]...)
+				}
+			}
+		}
+	}
+	return err
+}
+
 func (bd *BoltDB) getBucketFromPath(path []string) (*BoltBucket, error) {
 	if len(path) > 0 {
 		// Find the BoltBucket with a path == path
@@ -193,6 +225,33 @@ func (bd *BoltDB) getNextVisiblePath(path []string) []string {
 	return nil
 }
 
+func (bd *BoltDB) toggleOpenBucket(path []string) error {
+	// Find the BoltBucket with a path == path
+	b, err := bd.getBucketFromPath(path)
+	if err == nil {
+		b.expanded = !b.expanded
+	}
+	return err
+}
+
+func (bd *BoltDB) closeBucket(path []string) error {
+	// Find the BoltBucket with a path == path
+	b, err := bd.getBucketFromPath(path)
+	if err == nil {
+		b.expanded = false
+	}
+	return err
+}
+
+func (bd *BoltDB) openBucket(path []string) error {
+	// Find the BoltBucket with a path == path
+	b, err := bd.getBucketFromPath(path)
+	if err == nil {
+		b.expanded = true
+	}
+	return err
+}
+
 func (bd *BoltDB) getBucket(k string) (*BoltBucket, error) {
 	for i := range bd.buckets {
 		if bd.buckets[i].name == k {
@@ -200,6 +259,29 @@ func (bd *BoltDB) getBucket(k string) (*BoltBucket, error) {
 		}
 	}
 	return nil, errors.New("Bucket Not Found")
+}
+
+func (bd *BoltDB) syncOpenBuckets(shadow *BoltDB) {
+	// First test this bucket
+	for i := range bd.buckets {
+		for j := range shadow.buckets {
+			if bd.buckets[i].name == shadow.buckets[j].name {
+				bd.buckets[i].syncOpenBuckets(&shadow.buckets[j])
+			}
+		}
+	}
+}
+
+func (b *BoltBucket) syncOpenBuckets(shadow *BoltBucket) {
+	// First test this bucket
+	b.expanded = shadow.expanded
+	for i := range b.buckets {
+		for j := range shadow.buckets {
+			if b.buckets[i].name == shadow.buckets[j].name {
+				b.buckets[i].syncOpenBuckets(&shadow.buckets[j])
+			}
+		}
+	}
 }
 
 func (b *BoltBucket) getBucket(k string) (*BoltBucket, error) {
@@ -220,51 +302,35 @@ func (b *BoltBucket) getPair(k string) (*BoltPair, error) {
 	return nil, errors.New("Pair Not Found")
 }
 
-func toggleOpenBucket(path []string) error {
-	// Find the BoltBucket with a path == path
-	b, err := memBolt.getBucketFromPath(path)
-	if err == nil {
-		b.expanded = !b.expanded
-	}
-	return err
-}
-
-func closeBucket(path []string) error {
-	// Find the BoltBucket with a path == path
-	b, err := memBolt.getBucketFromPath(path)
-	if err == nil {
-		b.expanded = false
-	}
-	return err
-}
-
-func openBucket(path []string) error {
-	// Find the BoltBucket with a path == path
-	b, err := memBolt.getBucketFromPath(path)
-	if err == nil {
-		b.expanded = true
-	}
-	return err
-}
-
 func deleteKey(path []string) error {
 	err := db.Update(func(tx *bolt.Tx) error {
 		// len(b.path)-1 is the key we need to delete, the rest are buckets leading to that key
-		b := tx.Bucket([]byte(path[0]))
-		if b != nil {
-			if len(path) > 1 {
-				for i := range path[2 : len(path)-1] {
-					b = b.Bucket([]byte(path[i+1]))
-					if b == nil {
-						return errors.New("deleteKey: Invalid Path")
+		if len(path) == 1 {
+			// Deleting a root bucket
+			return tx.DeleteBucket([]byte(path[0]))
+		} else {
+			b := tx.Bucket([]byte(path[0]))
+			if b != nil {
+				if len(path) > 1 {
+					for i := range path[1 : len(path)-1] {
+						b = b.Bucket([]byte(path[i+1]))
+						if b == nil {
+							return errors.New("deleteKey: Invalid Path")
+						}
 					}
 				}
+				// Now delete the last key in the path
+				var err error
+				if delete_bkt := b.Bucket([]byte(path[len(path)-1])); delete_bkt == nil {
+					// Must be a pair
+					err = b.Delete([]byte(path[len(path)-1]))
+				} else {
+					err = b.DeleteBucket([]byte(path[len(path)-1]))
+				}
+				return err
+			} else {
+				return errors.New("deleteKey: Invalid Path")
 			}
-			// Now delete the last key in the path
-			err := b.Delete([]byte(path[len(path)-1]))
-			return err
-		} else {
-			return errors.New("deleteKey: Invalid Path")
 		}
 	})
 	return err

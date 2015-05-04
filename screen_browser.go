@@ -23,17 +23,19 @@ type BrowserScreen struct {
 	message        string
 	mode           BrowserMode
 	input_modal    *termbox_util.InputModal
+	confirm_modal  *termbox_util.ConfirmModal
 }
 
 type BrowserMode int
 
 const (
-	MODE_BROWSE          = 16 // 001 0000
-	MODE_CHANGE_VAL      = 32 // 010 0000
-	MODE_INSERT_BUCKET   = 48 // 011 0000
-	MODE_INSERT_PAIR     = 64 // 100 0000
-	MODE_INSERT_PAIR_KEY = 65 // 100 0001
-	MODE_INSERT_PAIR_VAL = 66 // 100 0010
+	MODE_BROWSE          = 16  // 0001 0000
+	MODE_CHANGE_VAL      = 32  // 0010 0000
+	MODE_INSERT_BUCKET   = 48  // 0011 0000
+	MODE_INSERT_PAIR     = 64  // 0100 0000
+	MODE_INSERT_PAIR_KEY = 65  // 0100 0001
+	MODE_INSERT_PAIR_VAL = 66  // 0100 0010
+	MODE_DELETE          = 128 // 1000 0000
 )
 
 type BoltType int
@@ -52,7 +54,9 @@ func (screen *BrowserScreen) handleKeyEvent(event termbox.Event) int {
 	} else if screen.mode == MODE_CHANGE_VAL {
 		return screen.handleInputKeyEvent(event)
 	} else if screen.mode == MODE_INSERT_BUCKET {
-		return screen.handleInsertItemEvent(event)
+		return screen.handleInsertKeyEvent(event)
+	} else if screen.mode == MODE_DELETE {
+		return screen.handleDeleteKeyEvent(event)
 	}
 	return BROWSER_SCREEN_INDEX
 }
@@ -102,24 +106,24 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 		if b != nil {
 			screen.message = "Cannot edit a bucket yet"
 		} else if p != nil {
-			screen.startEditItem(TYPE_PAIR)
+			screen.startEditItem()
 		}
 
 	} else if event.Key == termbox.KeyEnter {
 		b, p, _ := screen.db.getGenericFromPath(screen.current_path)
 		if b != nil {
-			toggleOpenBucket(screen.current_path)
+			screen.db.toggleOpenBucket(screen.current_path)
 		} else if p != nil {
-			screen.startEditItem(TYPE_PAIR)
+			screen.startEditItem()
 		}
 
 	} else if event.Ch == 'l' || event.Key == termbox.KeyArrowRight {
 		b, p, _ := screen.db.getGenericFromPath(screen.current_path)
 		// Select the current item
 		if b != nil {
-			toggleOpenBucket(screen.current_path)
+			screen.db.toggleOpenBucket(screen.current_path)
 		} else if p != nil {
-			screen.startEditItem(TYPE_PAIR)
+			screen.startEditItem()
 		} else {
 			screen.message = "Not sure what to do here..."
 		}
@@ -128,23 +132,22 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 		// If we are _on_ a bucket that's open, close it
 		b, _, e := screen.db.getGenericFromPath(screen.current_path)
 		if e == nil && b != nil && b.expanded {
-			closeBucket(screen.current_path)
+			screen.db.closeBucket(screen.current_path)
 		} else {
 			if len(screen.current_path) > 1 {
 				parent_bucket, err := screen.db.getBucketFromPath(screen.current_path[:len(screen.current_path)-1])
 				if err == nil {
-					closeBucket(parent_bucket.path)
+					screen.db.closeBucket(parent_bucket.path)
 					// Figure out how far up we need to move the cursor
 					screen.current_path = parent_bucket.path
 				}
 			} else {
-				closeBucket(screen.current_path)
+				screen.db.closeBucket(screen.current_path)
 			}
 		}
 
 	} else if event.Ch == 'D' {
-		deleteKey(screen.current_path)
-		screen.current_path = screen.current_path[:len(screen.current_path)-1]
+		screen.startDeleteItem()
 	}
 	return BROWSER_SCREEN_INDEX
 }
@@ -173,9 +176,50 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 	return BROWSER_SCREEN_INDEX
 }
 
-func (screen *BrowserScreen) handleInsertItemEvent(event termbox.Event) int {
+func (screen *BrowserScreen) handleDeleteKeyEvent(event termbox.Event) int {
+	screen.confirm_modal.HandleKeyPress(event)
+	if screen.confirm_modal.IsDone() {
+		if screen.confirm_modal.IsAccepted() {
+			hold_next_path := screen.db.getNextVisiblePath(screen.current_path)
+			hold_prev_path := screen.db.getPrevVisiblePath(screen.current_path)
+			if deleteKey(screen.current_path) == nil {
+				shadow_db := screen.db
+				screen.db = refreshDatabase()
+				screen.db.syncOpenBuckets(shadow_db)
+				// Move the current path endpoint appropriately
+				//found_new_path := false
+				if hold_next_path != nil {
+					if len(hold_next_path) > 2 {
+						if hold_next_path[len(hold_next_path)-2] == screen.current_path[len(screen.current_path)-2] {
+							screen.current_path = hold_next_path
+						} else if hold_prev_path != nil {
+							screen.current_path = hold_prev_path
+						} else {
+							// Otherwise, go to the parent
+							screen.current_path = screen.current_path[:(len(hold_next_path) - 2)]
+						}
+					} else {
+						// Root bucket deleted, set to next
+						screen.current_path = hold_next_path
+					}
+				} else if hold_prev_path != nil {
+					screen.current_path = hold_prev_path
+				} else {
+					screen.current_path = screen.current_path[:0]
+				}
+			}
+		}
+		screen.mode = MODE_BROWSE
+		screen.confirm_modal.Clear()
+	}
+	return BROWSER_SCREEN_INDEX
+}
+
+func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 	if event.Key == termbox.KeyEsc {
 		screen.mode = MODE_BROWSE
+		screen.input_modal.Clear()
+	} else {
 		/*
 			} else if event.Key == termbox.KeyEnter {
 				b, p, e := screen.db.getGenericFromPath(screen.current_path)
@@ -283,6 +327,9 @@ func (screen *BrowserScreen) drawScreen(style Style) {
 	screen.drawFooter(style)
 	if screen.mode == MODE_CHANGE_VAL || screen.mode == MODE_INSERT_BUCKET || screen.mode&MODE_INSERT_PAIR == MODE_INSERT_PAIR {
 		screen.input_modal.Draw()
+	}
+	if screen.mode == MODE_DELETE {
+		screen.confirm_modal.Draw()
 	}
 }
 
@@ -421,7 +468,27 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 	return 1
 }
 
-func (screen *BrowserScreen) startEditItem(tp BoltType) bool {
+func (screen *BrowserScreen) startDeleteItem() bool {
+	b, p, e := screen.db.getGenericFromPath(screen.current_path)
+	if e == nil {
+		w, h := termbox.Size()
+		inp_w, inp_h := (w / 2), 6
+		inp_x, inp_y := ((w / 2) - (inp_w / 2)), ((h / 2) - inp_h)
+		mod := termbox_util.CreateConfirmModal("", inp_x, inp_y, inp_w, inp_h, termbox.ColorWhite, termbox.ColorBlack)
+		if b != nil {
+			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Delete Bucket '%s'?", b.name), inp_w, termbox_util.ALIGN_CENTER))
+		} else if p != nil {
+			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Delete Pair '%s'?", p.key), inp_w, termbox_util.ALIGN_CENTER))
+		}
+		mod.SetText("This cannot be undone!")
+		screen.confirm_modal = mod
+		screen.mode = MODE_DELETE
+		return true
+	}
+	return false
+}
+
+func (screen *BrowserScreen) startEditItem() bool {
 	b, p, e := screen.db.getGenericFromPath(screen.current_path)
 	if e == nil {
 		w, h := termbox.Size()
