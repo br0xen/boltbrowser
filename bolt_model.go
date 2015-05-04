@@ -437,7 +437,7 @@ func updatePairValue(path []string, v string) error {
 }
 
 func insertBucket(path []string, n string) error {
-	// Inserts a new bucket named 'n' at 'path[len(path)-2]
+	// Inserts a new bucket named 'n' at 'path'
 	err := db.Update(func(tx *bolt.Tx) error {
 		if len(path) == 1 {
 			// insert at root
@@ -460,6 +460,35 @@ func insertBucket(path []string, n string) error {
 				_, err := b.CreateBucket([]byte(n))
 				if err != nil {
 					return fmt.Errorf("insertBucket: %s", err)
+				}
+			}
+		}
+		return nil
+	})
+	return err
+}
+
+func insertPair(path []string, k string, v string) error {
+	// Insert a new pair k => v at path
+	err := db.Update(func(tx *bolt.Tx) error {
+		if len(path) == 1 {
+			// We cannot insert a pair at root
+			return errors.New("insertPair: Cannot insert pair at root.")
+		} else if len(path) > 1 {
+			var err error
+			b := tx.Bucket([]byte(path[0]))
+			if b != nil {
+				if len(path) > 2 {
+					for i := range path[1 : len(path)-2] {
+						b = b.Bucket([]byte(path[i+1]))
+						if b == nil {
+							return fmt.Errorf("insertPair: %s", err)
+						}
+					}
+				}
+				err := b.Put([]byte(k), []byte(v))
+				if err != nil {
+					return fmt.Errorf("insertPair: %s", err)
 				}
 			}
 		}

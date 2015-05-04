@@ -78,7 +78,9 @@ func (screen *AboutScreen) drawScreen(style Style) {
 
 	commands2 := [...]Command{
 		{"p", "create pair"},
+		{"P", "create pair at parent"},
 		{"b", "create bucket"},
+		{"B", "create bucket at parent"},
 		{"d", "delete item"},
 
 		{"?", "this screen"},
