@@ -264,6 +264,7 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 				if screen.mode&MODE_INSERT_PAIR_KEY == MODE_INSERT_PAIR_KEY {
 					screen.input_modal.SetText("New Pair Value:")
 					screen.mode = MODE_INSERT_PAIR | MODE_INSERT_PAIR_VAL
+					screen.input_modal.Show()
 				} else if screen.mode&MODE_INSERT_PAIR_VAL == MODE_INSERT_PAIR_VAL {
 					screen.mode = MODE_BROWSE
 					screen.input_modal.Clear()
@@ -346,8 +347,8 @@ func (screen *BrowserScreen) drawScreen(style Style) {
 	screen.drawRightPane(style)
 	screen.drawHeader(style)
 	screen.drawFooter(style)
-	if screen.mode == MODE_CHANGE_VAL || screen.mode == MODE_INSERT_BUCKET ||
-		screen.mode&MODE_INSERT_PAIR == MODE_INSERT_PAIR {
+
+	if screen.input_modal != nil {
 		screen.input_modal.Draw()
 	}
 	if screen.mode == MODE_DELETE {
@@ -502,6 +503,7 @@ func (screen *BrowserScreen) startDeleteItem() bool {
 		} else if p != nil {
 			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Delete Pair '%s'?", p.key), inp_w-1, termbox_util.ALIGN_CENTER))
 		}
+		mod.Show()
 		mod.SetText(termbox_util.AlignText("This cannot be undone!", inp_w-1, termbox_util.ALIGN_CENTER))
 		screen.confirm_modal = mod
 		screen.mode = MODE_DELETE
@@ -524,6 +526,7 @@ func (screen *BrowserScreen) startEditItem() bool {
 			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Input new value for '%s'", p.key), inp_w, termbox_util.ALIGN_CENTER))
 			mod.SetValue(p.val)
 		}
+		mod.Show()
 		screen.input_modal = mod
 		screen.mode = MODE_CHANGE_VAL
 		return true
@@ -542,16 +545,19 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 		if tp == TYPE_BUCKET {
 			mod.SetTitle(termbox_util.AlignText("Create New Bucket", inp_w, termbox_util.ALIGN_CENTER))
 			screen.mode = MODE_INSERT_BUCKET | MODE_MOD_TO_PARENT
+			mod.Show()
 			return true
 		}
 	} else {
 		if tp == TYPE_BUCKET {
 			mod.SetTitle(termbox_util.AlignText("Create New Bucket", inp_w, termbox_util.ALIGN_CENTER))
 			screen.mode = MODE_INSERT_BUCKET | MODE_MOD_TO_PARENT
+			mod.Show()
 			return true
 		} else if tp == TYPE_PAIR {
 			mod.SetTitle(termbox_util.AlignText("Create New Pair", inp_w, termbox_util.ALIGN_CENTER))
 			mod.SetText("New Pair Key:")
+			mod.Show()
 			screen.mode = MODE_INSERT_PAIR | MODE_MOD_TO_PARENT
 			return true
 		}
@@ -577,6 +583,7 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 		// in the root directory
 		if tp == TYPE_BUCKET {
 			mod.SetTitle(termbox_util.AlignText("Create New Bucket", inp_w, termbox_util.ALIGN_CENTER))
+			mod.Show()
 			screen.mode = MODE_INSERT_BUCKET
 			return true
 		}
@@ -584,10 +591,12 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 		if tp == TYPE_BUCKET {
 			mod.SetTitle(termbox_util.AlignText("Create New Bucket", inp_w, termbox_util.ALIGN_CENTER))
 			screen.mode = MODE_INSERT_BUCKET
+			mod.Show()
 			return true
 		} else if tp == TYPE_PAIR {
 			mod.SetTitle(termbox_util.AlignText("Create New Pair", inp_w, termbox_util.ALIGN_CENTER))
 			screen.mode = MODE_INSERT_PAIR
+			mod.Show()
 			return true
 		}
 	}

@@ -16,9 +16,9 @@ func defaultStyle() Style {
 	style.default_bg = termbox.ColorBlack
 	style.default_fg = termbox.ColorWhite
 	style.title_fg = termbox.ColorBlack
-	style.title_bg = termbox.ColorRed
+	style.title_bg = termbox.ColorGreen
 	style.cursor_fg = termbox.ColorBlack
-	style.cursor_bg = termbox.ColorRed
+	style.cursor_bg = termbox.ColorGreen
 
 	return style
 }
