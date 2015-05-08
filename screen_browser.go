@@ -79,6 +79,9 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 		// Jump to End
 		screen.current_path = screen.db.getPrevVisiblePath(nil)
 
+	} else if event.Key == termbox.KeyCtrlR {
+		screen.refreshDatabase()
+
 	} else if event.Key == termbox.KeyCtrlF {
 		// Jump forward half a screen
 		_, h := termbox.Size()
@@ -176,6 +179,7 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 				} else {
 					p.val = new_val
 					screen.message = "Pair updated!"
+					screen.refreshDatabase()
 				}
 			}
 			screen.mode = MODE_BROWSE
@@ -192,9 +196,7 @@ func (screen *BrowserScreen) handleDeleteKeyEvent(event termbox.Event) int {
 			hold_next_path := screen.db.getNextVisiblePath(screen.current_path)
 			hold_prev_path := screen.db.getPrevVisiblePath(screen.current_path)
 			if deleteKey(screen.current_path) == nil {
-				shadow_db := screen.db
-				screen.db = refreshDatabase()
-				screen.db.syncOpenBuckets(shadow_db)
+				screen.refreshDatabase()
 				// Move the current path endpoint appropriately
 				//found_new_path := false
 				if hold_next_path != nil {
@@ -226,37 +228,48 @@ func (screen *BrowserScreen) handleDeleteKeyEvent(event termbox.Event) int {
 
 func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 	if event.Key == termbox.KeyEsc {
-		screen.mode = MODE_BROWSE
-		screen.input_modal.Clear()
+		if len(screen.db.buckets) == 0 {
+			return EXIT_SCREEN_INDEX
+		} else {
+			screen.mode = MODE_BROWSE
+			screen.input_modal.Clear()
+		}
 	} else {
 		screen.input_modal.HandleKeyPress(event)
 		if screen.input_modal.IsDone() {
 			new_val := screen.input_modal.GetValue()
-			b, p, e := screen.db.getGenericFromPath(screen.current_path)
-			if e != nil {
-				screen.message = "Error Inserting new item. Invalid Path."
-			}
-			insert_path := screen.current_path
-			// where are we inserting?
-			var parent *BoltBucket
-			if p != nil {
-				// If we're sitting on a pair, we have to go to it's parent
-				screen.mode = screen.mode | MODE_MOD_TO_PARENT
-				parent = p.parent
-			} else if b != nil {
-				parent = b.parent
-				insert_path = b.path
-			}
-			if screen.mode&MODE_MOD_TO_PARENT == MODE_MOD_TO_PARENT {
-				if parent != nil {
-					insert_path = parent.path
-				} else {
-					insert_path = screen.current_path[:0]
+			var insert_path []string
+			if len(screen.current_path) > 0 {
+				_, p, e := screen.db.getGenericFromPath(screen.current_path)
+				if e != nil {
+					screen.message = "Error Inserting new item. Invalid Path."
+				}
+				insert_path = screen.current_path
+				// where are we inserting?
+				//var parent *BoltBucket
+				if p != nil {
+					// If we're sitting on a pair, we have to go to it's parent
+					screen.mode = screen.mode | MODE_MOD_TO_PARENT
+					//	parent = p.parent
+					//} else if b != nil {
+					//					parent = b.parent
+				}
+				if screen.mode&MODE_MOD_TO_PARENT == MODE_MOD_TO_PARENT {
+					if len(screen.current_path) > 1 {
+						insert_path = screen.current_path[:len(screen.current_path)-1]
+					} else {
+						insert_path = make([]string, 0)
+					}
 				}
 			}
 
 			if screen.mode&MODE_INSERT_BUCKET == MODE_INSERT_BUCKET {
-				insertBucket(insert_path, new_val)
+				screen.message = strings.Join(insert_path, "/")
+				err := insertBucket(insert_path, new_val)
+				if err != nil {
+					screen.message = fmt.Sprintf("%s => %s", err, insert_path)
+				}
+				screen.refreshDatabase()
 				screen.mode = MODE_BROWSE
 				screen.input_modal.Clear()
 			} else if screen.mode&MODE_INSERT_PAIR == MODE_INSERT_PAIR {
@@ -277,7 +290,7 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 
 func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
 	// Jump up 'distance' lines
-	vis_paths, err := screen.db.buildVisiblePathSlice(nil)
+	vis_paths, err := screen.db.buildVisiblePathSlice()
 	if err == nil {
 		find_path := strings.Join(screen.current_path, "/")
 		start_jump := false
@@ -300,7 +313,7 @@ func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
 	return true
 }
 func (screen *BrowserScreen) jumpCursorDown(distance int) bool {
-	vis_paths, err := screen.db.buildVisiblePathSlice(nil)
+	vis_paths, err := screen.db.buildVisiblePathSlice()
 	if err == nil {
 		find_path := strings.Join(screen.current_path, "/")
 		start_jump := false
@@ -343,6 +356,10 @@ func (screen *BrowserScreen) moveCursorDown() bool {
 func (screen *BrowserScreen) performLayout() {}
 
 func (screen *BrowserScreen) drawScreen(style Style) {
+	if len(screen.db.buckets) == 0 && screen.mode&MODE_INSERT_BUCKET != MODE_INSERT_BUCKET {
+		// Force a bucket insert
+		screen.startInsertItemAtParent(TYPE_BUCKET)
+	}
 	screen.drawLeftPane(style)
 	screen.drawRightPane(style)
 	screen.drawHeader(style)
@@ -383,7 +400,7 @@ func (screen *BrowserScreen) drawLeftPane(style Style) {
 	// So we know how much of the tree _wants_ to be visible
 	// we only have screen.view_port.number_of_rows of space though
 	cur_path_spot := 0
-	vis_slice, err := screen.db.buildVisiblePathSlice(nil)
+	vis_slice, err := screen.db.buildVisiblePathSlice()
 	if err == nil {
 		for i := range vis_slice {
 			if strings.Join(screen.current_path, "/") == vis_slice[i] {
@@ -425,6 +442,16 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 				termbox_util.DrawStringAtPoint(fmt.Sprintf("Key: %s", p.key), start_x, start_y+1, style.default_fg, style.default_bg)
 				termbox_util.DrawStringAtPoint(fmt.Sprintf("Value: %s", p.val), start_x, start_y+2, style.default_fg, style.default_bg)
 			}
+
+			p_str := fmt.Sprintf("PREV: %s", strings.Join(screen.db.getPrevVisiblePath(screen.current_path), "/"))
+			n_str := fmt.Sprintf("NEXT: %s", strings.Join(screen.db.getNextVisiblePath(screen.current_path), "/"))
+			termbox_util.DrawStringAtPoint(p_str, start_x, start_y+4, style.default_fg, style.default_bg)
+			termbox_util.DrawStringAtPoint(n_str, start_x, start_y+5, style.default_fg, style.default_bg)
+
+			vs, _ := screen.db.buildVisiblePathSlice()
+			for i := range vs {
+				termbox_util.DrawStringAtPoint(vs[i], start_x, start_y+6+i, style.default_fg, style.default_bg)
+			}
 		}
 	}
 }
@@ -449,7 +476,16 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 		bucket_bg = style.cursor_bg
 	}
 
-	bkt_string := strings.Repeat(" ", screen.db.getDepthFromPath(bkt.path)*2)
+	if len(bkt.path) == 0 {
+		// No bucket should have a 0 length path...
+		if bkt.parent == nil {
+			bkt.path = []string{bkt.name}
+		} else {
+			bkt.path = append(bkt.parent.path, bkt.name)
+		}
+	}
+
+	bkt_string := strings.Repeat(" ", len(bkt.path)*2) //screen.db.getDepthFromPath(bkt.path)*2)
 	if bkt.expanded {
 		bkt_string = bkt_string + "- " + bkt.name + " "
 		bkt_string = fmt.Sprintf("%s%s", bkt_string, strings.Repeat(" ", (w-len(bkt_string))))
@@ -484,7 +520,7 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 		bucket_bg = style.cursor_bg
 	}
 
-	pair_string := strings.Repeat(" ", screen.db.getDepthFromPath(bp.path)*2)
+	pair_string := strings.Repeat(" ", len(bp.path)*2) //screen.db.getDepthFromPath(bp.path)*2)
 	pair_string = fmt.Sprintf("%s%s: %s", pair_string, bp.key, bp.val)
 	pair_string = fmt.Sprintf("%s%s", pair_string, strings.Repeat(" ", (w-len(pair_string))))
 	termbox_util.DrawStringAtPoint(pair_string, 0, y, bucket_fg, bucket_bg)
@@ -540,22 +576,23 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 	inp_x, inp_y := ((w / 2) - (inp_w / 2)), ((h / 2) - inp_h)
 	mod := termbox_util.CreateInputModal("", inp_x, inp_y, inp_w, inp_h, termbox.ColorWhite, termbox.ColorBlack)
 	screen.input_modal = mod
-	if len(screen.current_path) == 1 {
+	if len(screen.current_path) <= 0 {
 		// in the root directory
 		if tp == TYPE_BUCKET {
-			mod.SetTitle(termbox_util.AlignText("Create New Bucket", inp_w, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termbox_util.AlignText("Create Root Bucket", inp_w, termbox_util.ALIGN_CENTER))
 			screen.mode = MODE_INSERT_BUCKET | MODE_MOD_TO_PARENT
 			mod.Show()
 			return true
 		}
 	} else {
+		ins_path := strings.Join(screen.current_path[:len(screen.current_path)-1], "/") + "/"
 		if tp == TYPE_BUCKET {
-			mod.SetTitle(termbox_util.AlignText("Create New Bucket", inp_w, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termbox_util.AlignText("Create Bucket at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
 			screen.mode = MODE_INSERT_BUCKET | MODE_MOD_TO_PARENT
 			mod.Show()
 			return true
 		} else if tp == TYPE_PAIR {
-			mod.SetTitle(termbox_util.AlignText("Create New Pair", inp_w, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termbox_util.AlignText("Create Pair at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
 			mod.SetText("New Pair Key:")
 			mod.Show()
 			screen.mode = MODE_INSERT_PAIR | MODE_MOD_TO_PARENT
@@ -567,7 +604,7 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 
 func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 	_, p, e := screen.db.getGenericFromPath(screen.current_path)
-	if e == nil {
+	if e != nil {
 		return false
 	}
 	if p != nil {
@@ -579,28 +616,20 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 	inp_x, inp_y := ((w / 2) - (inp_w / 2)), ((h / 2) - inp_h)
 	mod := termbox_util.CreateInputModal("", inp_x, inp_y, inp_w, inp_h, termbox.ColorWhite, termbox.ColorBlack)
 	screen.input_modal = mod
-	if len(screen.current_path) == 1 {
-		// in the root directory
-		if tp == TYPE_BUCKET {
-			mod.SetTitle(termbox_util.AlignText("Create New Bucket", inp_w, termbox_util.ALIGN_CENTER))
-			mod.Show()
-			screen.mode = MODE_INSERT_BUCKET
-			return true
-		}
-	} else {
-		if tp == TYPE_BUCKET {
-			mod.SetTitle(termbox_util.AlignText("Create New Bucket", inp_w, termbox_util.ALIGN_CENTER))
-			screen.mode = MODE_INSERT_BUCKET
-			mod.Show()
-			return true
-		} else if tp == TYPE_PAIR {
-			mod.SetTitle(termbox_util.AlignText("Create New Pair", inp_w, termbox_util.ALIGN_CENTER))
-			screen.mode = MODE_INSERT_PAIR
-			mod.Show()
-			return true
-		}
+	ins_path := strings.Join(screen.current_path, "/") + "/"
+	if tp == TYPE_BUCKET {
+		mod.SetTitle(termbox_util.AlignText("Create Bucket at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
+		screen.mode = MODE_INSERT_BUCKET
+		mod.Show()
+		return true
 	}
 	return false
+}
+
+func (screen *BrowserScreen) refreshDatabase() {
+	shadowDB := screen.db
+	screen.db = screen.db.refreshDatabase()
+	screen.db.syncOpenBuckets(shadowDB)
 }
 
 func comparePaths(p1, p2 []string) bool {

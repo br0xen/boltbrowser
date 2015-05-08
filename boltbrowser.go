@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// First things first, load the database into memory
-	refreshDatabase()
+	memBolt.refreshDatabase()
 
 	err = termbox.Init()
 	if err != nil {
