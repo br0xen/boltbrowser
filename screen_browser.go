@@ -246,13 +246,9 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 				}
 				insert_path = screen.current_path
 				// where are we inserting?
-				//var parent *BoltBucket
 				if p != nil {
 					// If we're sitting on a pair, we have to go to it's parent
 					screen.mode = screen.mode | MODE_MOD_TO_PARENT
-					//	parent = p.parent
-					//} else if b != nil {
-					//					parent = b.parent
 				}
 				if screen.mode&MODE_MOD_TO_PARENT == MODE_MOD_TO_PARENT {
 					if len(screen.current_path) > 1 {
@@ -273,14 +269,17 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 				screen.mode = MODE_BROWSE
 				screen.input_modal.Clear()
 			} else if screen.mode&MODE_INSERT_PAIR == MODE_INSERT_PAIR {
-				//				insertPair(insert_path,
-				if screen.mode&MODE_INSERT_PAIR_KEY == MODE_INSERT_PAIR_KEY {
-					screen.input_modal.SetText("New Pair Value:")
-					screen.mode = MODE_INSERT_PAIR | MODE_INSERT_PAIR_VAL
-					screen.input_modal.Show()
-				} else if screen.mode&MODE_INSERT_PAIR_VAL == MODE_INSERT_PAIR_VAL {
+				screen.message = "Add new pair: " + new_val
+				err := insertPair(insert_path, new_val, "")
+				if err != nil {
+					screen.message = fmt.Sprintf("%s => %s", err, insert_path)
+					screen.refreshDatabase()
 					screen.mode = MODE_BROWSE
 					screen.input_modal.Clear()
+				} else {
+					screen.current_path = append(screen.current_path, new_val)
+					screen.refreshDatabase()
+					screen.startEditItem()
 				}
 			}
 		}
@@ -434,7 +433,7 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 			start_x := (w / 2) + 2
 			start_y := 2
 			if b != nil {
-				termbox_util.DrawStringAtPoint(fmt.Sprintf("Path: %s", strings.Join(b.path, "/")), start_x, start_y, style.default_fg, style.default_bg)
+				termbox_util.DrawStringAtPoint(fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), "/")), start_x, start_y, style.default_fg, style.default_bg)
 				termbox_util.DrawStringAtPoint(fmt.Sprintf("Buckets: %d", len(b.buckets)), start_x, start_y+1, style.default_fg, style.default_bg)
 				termbox_util.DrawStringAtPoint(fmt.Sprintf("Pairs: %d", len(b.pairs)), start_x, start_y+2, style.default_fg, style.default_bg)
 			} else if p != nil {
@@ -471,7 +470,7 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 	used_lines := 0
 	bucket_fg := style.default_fg
 	bucket_bg := style.default_bg
-	if comparePaths(screen.current_path, bkt.path) {
+	if comparePaths(screen.current_path, bkt.GetPath()) {
 		bucket_fg = style.cursor_fg
 		bucket_bg = style.cursor_bg
 	}
@@ -572,7 +571,7 @@ func (screen *BrowserScreen) startEditItem() bool {
 
 func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 	w, h := termbox.Size()
-	inp_w, inp_h := (w / 2), 6
+	inp_w, inp_h := (w / 2), 7
 	inp_x, inp_y := ((w / 2) - (inp_w / 2)), ((h / 2) - inp_h)
 	mod := termbox_util.CreateInputModal("", inp_x, inp_y, inp_w, inp_h, termbox.ColorWhite, termbox.ColorBlack)
 	screen.input_modal = mod
@@ -593,7 +592,6 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 			return true
 		} else if tp == TYPE_PAIR {
 			mod.SetTitle(termbox_util.AlignText("Create Pair at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
-			mod.SetText("New Pair Key:")
 			mod.Show()
 			screen.mode = MODE_INSERT_PAIR | MODE_MOD_TO_PARENT
 			return true
@@ -603,16 +601,8 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 }
 
 func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
-	_, p, e := screen.db.getGenericFromPath(screen.current_path)
-	if e != nil {
-		return false
-	}
-	if p != nil {
-		// if the current path is at a pair, we _must_ go to the parent
-		return screen.startInsertItemAtParent(tp)
-	}
 	w, h := termbox.Size()
-	inp_w, inp_h := (w / 2), 6
+	inp_w, inp_h := (w / 2), 7
 	inp_x, inp_y := ((w / 2) - (inp_w / 2)), ((h / 2) - inp_h)
 	mod := termbox_util.CreateInputModal("", inp_x, inp_y, inp_w, inp_h, termbox.ColorWhite, termbox.ColorBlack)
 	screen.input_modal = mod
@@ -621,6 +611,11 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 		mod.SetTitle(termbox_util.AlignText("Create Bucket at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
 		screen.mode = MODE_INSERT_BUCKET
 		mod.Show()
+		return true
+	} else if tp == TYPE_PAIR {
+		mod.SetTitle(termbox_util.AlignText("Create Pair at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
+		mod.Show()
+		screen.mode = MODE_INSERT_PAIR
 		return true
 	}
 	return false

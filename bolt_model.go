@@ -277,6 +277,11 @@ func (bd *BoltDB) refreshDatabase() *BoltDB {
 	return memBolt
 }
 
+func (b *BoltBucket) GetPath() []string {
+	b.path[len(b.path)-1] = b.name
+	return b.path
+}
+
 func (b *BoltBucket) buildVisiblePathSlice(prefix []string) ([]string, error) {
 	var ret_slice []string
 	var ret_err error
@@ -296,7 +301,7 @@ func (b *BoltBucket) buildVisiblePathSlice(prefix []string) ([]string, error) {
 		}
 		// Add Pairs
 		for i := range b.pairs {
-			ret_slice = append(ret_slice, strings.Join(prefix, "/")+b.pairs[i].key)
+			ret_slice = append(ret_slice, strings.Join(prefix, "/")+"/"+b.pairs[i].key)
 		}
 	}
 	return ret_slice, ret_err
@@ -437,7 +442,7 @@ func updatePairValue(path []string, v string) error {
 		// len(b.path)-1 is the key we need to delete, the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
 		if b != nil {
-			if len(path) > 1 {
+			if len(path) > 0 {
 				for i := range path[1 : len(path)-1] {
 					b = b.Bucket([]byte(path[i+1]))
 					if b == nil {
@@ -495,16 +500,16 @@ func insertBucket(path []string, n string) error {
 func insertPair(path []string, k string, v string) error {
 	// Insert a new pair k => v at path
 	err := db.Update(func(tx *bolt.Tx) error {
-		if len(path) == 1 {
+		if len(path) == 0 {
 			// We cannot insert a pair at root
 			return errors.New("insertPair: Cannot insert pair at root.")
-		} else if len(path) > 1 {
+		} else {
 			var err error
 			b := tx.Bucket([]byte(path[0]))
 			if b != nil {
-				if len(path) > 2 {
-					for i := range path[1 : len(path)-2] {
-						b = b.Bucket([]byte(path[i+1]))
+				if len(path) > 0 {
+					for i := 1; i < len(path)-1; i++ {
+						b = b.Bucket([]byte(path[i]))
 						if b == nil {
 							return fmt.Errorf("insertPair: %s", err)
 						}
