@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/boltdb/bolt"
+	"github.com/br0xen/bolt"
 	"os"
 	"strings"
 )
@@ -508,7 +508,7 @@ func insertPair(path []string, k string, v string) error {
 			b := tx.Bucket([]byte(path[0]))
 			if b != nil {
 				if len(path) > 0 {
-					for i := 1; i < len(path)-1; i++ {
+					for i := 1; i < len(path); i++ {
 						b = b.Bucket([]byte(path[i]))
 						if b == nil {
 							return fmt.Errorf("insertPair: %s", err)
@@ -530,7 +530,7 @@ var f *os.File
 
 func logToFile(s string) {
 	if f == nil {
-		f, _ = os.Create("bolt-log")
+		f, _ = os.OpenFile("bolt-log", os.O_RDWR|os.O_APPEND, 0660)
 	}
 	f.WriteString(s + "\n")
 	f.Sync()
