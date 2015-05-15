@@ -15,7 +15,6 @@ type BoltDB struct {
 
 type BoltBucket struct {
 	name       string
-	path       []string
 	pairs      []BoltPair
 	buckets    []BoltBucket
 	parent     *BoltBucket
@@ -24,7 +23,6 @@ type BoltBucket struct {
 }
 
 type BoltPair struct {
-	path   []string
 	parent *BoltBucket
 	key    string
 	val    string
@@ -86,7 +84,7 @@ func (bd *BoltDB) getVisibleItemCount(path []string) (int, error) {
 	var ret_err error
 	if len(path) == 0 {
 		for i := range bd.buckets {
-			n, err := bd.getVisibleItemCount(bd.buckets[i].path)
+			n, err := bd.getVisibleItemCount(bd.buckets[i].GetPath())
 			if err != nil {
 				return 0, err
 			}
@@ -105,7 +103,7 @@ func (bd *BoltDB) getVisibleItemCount(path []string) (int, error) {
 			vis += len(b.pairs)
 			// * recurse for buckets
 			for i := range b.buckets {
-				n, err := bd.getVisibleItemCount(b.buckets[i].path)
+				n, err := bd.getVisibleItemCount(b.buckets[i].GetPath())
 				if err != nil {
 					return 0, err
 				}
@@ -131,45 +129,6 @@ func (bd *BoltDB) buildVisiblePathSlice() ([]string, error) {
 	}
 	return ret_slice, ret_err
 }
-
-/*
-func (bd *BoltDB) buildVisiblePathSlice_old(path []string) ([]string, error) {
-	var ret_slice []string
-	var ret_err error
-	if len(path) == 0 {
-		for i := range bd.buckets {
-			n, err := bd.buildVisiblePathSlice(bd.buckets[i].path)
-			if err != nil {
-				return nil, err
-			}
-			ret_slice = append(ret_slice, n...)
-		}
-	} else {
-		b, err := bd.getBucketFromPath(path)
-		if err != nil {
-			return nil, err
-		}
-		// Add the bucket's path
-		ret_slice = append(ret_slice, strings.Join(b.path, "/"))
-		if b.expanded {
-			// This bucket is expanded, include it's children
-			// * recurse for buckets
-			for i := range b.buckets {
-				n, err := bd.buildVisiblePathSlice(b.buckets[i].path)
-				if err != nil {
-					return nil, err
-				}
-				ret_slice = append(ret_slice, n...)
-			}
-			// * one path for each pair
-			for i := range b.pairs {
-				ret_slice = append(ret_slice, strings.Join(b.pairs[i].path, "/"))
-			}
-		}
-	}
-	return ret_slice, ret_err
-}
-*/
 
 func (bd *BoltDB) getPrevVisiblePath(path []string) []string {
 	vis_paths, err := bd.buildVisiblePathSlice()
@@ -265,10 +224,8 @@ func (bd *BoltDB) refreshDatabase() *BoltDB {
 			bb, err := readBucket(b)
 			if err == nil {
 				bb.name = string(nm)
-				bb.setPath([]string{bb.name})
 				bb.expanded = false
 				memBolt.buckets = append(memBolt.buckets, *bb)
-				//updatePaths(bb)
 				return nil
 			}
 			return err
@@ -278,8 +235,11 @@ func (bd *BoltDB) refreshDatabase() *BoltDB {
 }
 
 func (b *BoltBucket) GetPath() []string {
-	b.path[len(b.path)-1] = b.name
-	return b.path
+	if b.parent != nil {
+		return append(b.parent.GetPath(), b.name)
+	} else {
+		return []string{b.name}
+	}
 }
 
 func (b *BoltBucket) buildVisiblePathSlice(prefix []string) ([]string, error) {
@@ -337,19 +297,14 @@ func (b *BoltBucket) getPair(k string) (*BoltPair, error) {
 	return nil, errors.New("Pair Not Found")
 }
 
-func (b *BoltBucket) setPath(p []string) {
-	b.path = p
-	for i := range b.buckets {
-		b.buckets[i].setPath(append(p, b.buckets[i].name))
-	}
-	for i := range b.pairs {
-		b.pairs[i].path = append(p, b.pairs[i].key)
-	}
+func (p *BoltPair) GetPath() []string {
+	return append(p.parent.GetPath(), p.key)
 }
 
 func deleteKey(path []string) error {
 	err := db.Update(func(tx *bolt.Tx) error {
-		// len(b.path)-1 is the key we need to delete, the rest are buckets leading to that key
+		// len(b.path)-1 is the key we need to delete,
+		// the rest are buckets leading to that key
 		if len(path) == 1 {
 			// Deleting a root bucket
 			return tx.DeleteBucket([]byte(path[0]))
@@ -401,17 +356,6 @@ func readBucket(b *bolt.Bucket) (*BoltBucket, error) {
 	return bb, nil
 }
 
-func updatePaths(b *BoltBucket) {
-	for i := range b.buckets {
-
-		b.buckets[i].path = append(b.path, b.buckets[i].name)
-		updatePaths(&b.buckets[i])
-	}
-	for i := range b.pairs {
-		b.pairs[i].path = append(b.path, b.pairs[i].key)
-	}
-}
-
 /*
 func renameBucket(path []string, name string) error {
 	err := db.Update(func(tx *bolt.Tx) error {
@@ -437,9 +381,41 @@ func renameBucket(path []string, name string) error {
 	return err
 }
 */
+
+func updatePairKey(path []string, k string) error {
+	err := db.Update(func(tx *bolt.Tx) error {
+		// len(b.path)-1 is the key for the pair we're updating,
+		// the rest are buckets leading to that key
+		b := tx.Bucket([]byte(path[0]))
+		if b != nil {
+			if len(path) > 0 {
+				for i := range path[1 : len(path)-1] {
+					b = b.Bucket([]byte(path[i+1]))
+					if b == nil {
+						return errors.New("updatePairValue: Invalid Path")
+					}
+				}
+			}
+			bk := []byte(path[len(path)-1])
+			v := b.Get(bk)
+			err := b.Delete(bk)
+			if err == nil {
+				// Old pair has been deleted, now add the new one
+				err = b.Put([]byte(k), v)
+			}
+			// Now update the last key in the path
+			return err
+		} else {
+			return errors.New("updatePairValue: Invalid Path")
+		}
+	})
+	return err
+}
+
 func updatePairValue(path []string, v string) error {
 	err := db.Update(func(tx *bolt.Tx) error {
-		// len(b.path)-1 is the key we need to delete, the rest are buckets leading to that key
+		// len(b.GetPath())-1 is the key for the pair we're updating,
+		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
 		if b != nil {
 			if len(path) > 0 {
@@ -528,10 +504,19 @@ func insertPair(path []string, k string, v string) error {
 
 var f *os.File
 
-func logToFile(s string) {
+func logToFile(s string) error {
+	var err error
 	if f == nil {
-		f, _ = os.OpenFile("bolt-log", os.O_RDWR|os.O_APPEND, 0660)
+		f, err = os.OpenFile("bolt-log", os.O_RDWR|os.O_APPEND, 0660)
 	}
-	f.WriteString(s + "\n")
-	f.Sync()
+	if err != nil {
+		return err
+	}
+	if _, err = f.WriteString(s + "\n"); err != nil {
+		return err
+	}
+	if err = f.Sync(); err != nil {
+		return err
+	}
+	return nil
 }
