@@ -301,6 +301,30 @@ func (p *BoltPair) GetPath() []string {
 	return append(p.parent.GetPath(), p.key)
 }
 
+/* This is a go-between function (between the boltbrowser structs
+ * above, and the bolt convenience functions below)
+ * for taking a boltbrowser bucket and recursively adding it
+ * and all of it's children into the database.
+ * Mainly used for moving a bucket from one path to another
+ * as in the 'renameBucket' function below.
+ */
+func addBucketFromBoltBucket(path []string, bb *BoltBucket) error {
+	if err := insertBucket(path, bb.name); err == nil {
+		bucket_path := append(path, bb.name)
+		for i := range bb.pairs {
+			if err = insertPair(bucket_path, bb.pairs[i].key, bb.pairs[i].val); err != nil {
+				return err
+			}
+		}
+		for i := range bb.buckets {
+			if err = addBucketFromBoltBucket(bucket_path, &bb.buckets[i]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func deleteKey(path []string) error {
 	err := db.Update(func(tx *bolt.Tx) error {
 		// len(b.path)-1 is the key we need to delete,
@@ -356,31 +380,57 @@ func readBucket(b *bolt.Bucket) (*BoltBucket, error) {
 	return bb, nil
 }
 
-/*
 func renameBucket(path []string, name string) error {
-	err := db.Update(func(tx *bolt.Tx) error {
-		// len(b.path)-1 is the key we need to delete, the rest are buckets leading to that key
+	if name == path[len(path)-1] {
+		// No change requested
+		return nil
+	}
+	var bb *BoltBucket // For caching the current bucket
+	err := db.View(func(tx *bolt.Tx) error {
+		// len(b.path)-1 is the key we need to delete,
+		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
 		if b != nil {
 			if len(path) > 1 {
-				for i := range path[1 : len(path)-1] {
+				for i := range path[1:len(path)] {
 					b = b.Bucket([]byte(path[i+1]))
 					if b == nil {
-						return errors.New("updatePairValue: Invalid Path")
+						return errors.New("renameBucket: Invalid Path")
 					}
 				}
 			}
-			// Now update the last key in the path
-			err := b.Put([]byte(path[len(path)-1]), []byte(v))
-			return err
+			var err error
+			// Ok, cache b
+			bb, err = readBucket(b)
+			if err != nil {
+				return err
+			}
 		} else {
-			return errors.New("renameBucket: Invalid Path")
+			return errors.New("renameBucket: Invalid Bucket")
 		}
+		return nil
 	})
-	refreshDatabase()
-	return err
+	if err != nil {
+		return err
+	}
+	if bb == nil {
+		return errors.New("renameBucket: Couldn't find Bucket")
+	}
+
+	// Ok, we have the bucket cached, now delete the current instance
+	if err = deleteKey(path); err != nil {
+		return err
+	}
+	// Rechristen our cached bucket
+	bb.name = name
+	// And re-add it
+
+	parent_path := path[:len(path)-1]
+	if err = addBucketFromBoltBucket(parent_path, bb); err != nil {
+		return err
+	}
+	return nil
 }
-*/
 
 func updatePairKey(path []string, k string) error {
 	err := db.Update(func(tx *bolt.Tx) error {

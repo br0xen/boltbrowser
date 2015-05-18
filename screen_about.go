@@ -46,22 +46,33 @@ func (screen *AboutScreen) drawScreen(style Style) {
 	}
 	first_line := template[0]
 	start_x := (width - len(first_line)) / 2
-	start_y := (height - 2*len(template)) / 2
+	start_y := ((height - 2*len(template)) / 2) - 2
 	x_pos := start_x
 	y_pos := start_y
-	for _, line := range template {
-		x_pos = start_x
-		for _, runeValue := range line {
-			bg := default_bg
-			displayRune := ' '
-			if runeValue != ' ' {
-				//bg = termbox.Attribute(125)
-				displayRune = runeValue
-				termbox.SetCell(x_pos, y_pos, displayRune, default_fg, bg)
-			}
-			x_pos++
+	if height <= 20 {
+		title := "BoltBrowser"
+		start_y = 0
+		y_pos = 0
+		termbox_util.DrawStringAtPoint(title, (width-len(title))/2, start_y, style.title_fg, style.title_bg)
+	} else {
+		if height < 25 {
+			start_y = 0
+			y_pos = 0
 		}
-		y_pos++
+		for _, line := range template {
+			x_pos = start_x
+			for _, runeValue := range line {
+				bg := default_bg
+				displayRune := ' '
+				if runeValue != ' ' {
+					//bg = termbox.Attribute(125)
+					displayRune = runeValue
+					termbox.SetCell(x_pos, y_pos, displayRune, default_fg, bg)
+				}
+				x_pos++
+			}
+			y_pos++
+		}
 	}
 
 	commands1 := [...]Command{
@@ -72,15 +83,15 @@ func (screen *AboutScreen) drawScreen(style Style) {
 
 		{"g", "goto top"},
 		{"G", "goto bottom"},
-		{"ctrl+f", "jump half-screen down"},
-		{"ctrl+b", "jump half-screen up"},
+		{"ctrl+f", "jump down"},
+		{"ctrl+b", "jump up"},
 	}
 
 	commands2 := [...]Command{
-		{"p", "create pair"},
-		{"P", "create pair at parent"},
-		{"b", "create bucket"},
-		{"B", "create bucket at parent"},
+		{"p,P", "create pair/at parent"},
+		{"b,B", "create bucket/at parent"},
+		{"e", "edit value of pair"},
+		{"r", "rename pair/bucket"},
 		{"d", "delete item"},
 
 		{"?", "this screen"},
@@ -91,4 +102,6 @@ func (screen *AboutScreen) drawScreen(style Style) {
 
 	drawCommandsAtPoint(commands1[:], x_pos, y_pos+1, style)
 	drawCommandsAtPoint(commands2[:], x_pos+20, y_pos+1, style)
+	exit_txt := "Press any key to return to browser"
+	termbox_util.DrawStringAtPoint(exit_txt, (width-len(exit_txt))/2, height-1, style.title_fg, style.title_bg)
 }

@@ -180,10 +180,22 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 	} else {
 		screen.input_modal.HandleKeyPress(event)
 		if screen.input_modal.IsDone() {
-			if screen.mode == MODE_CHANGE_KEY {
-				new_key := screen.input_modal.GetValue()
-				_, p, _ := screen.db.getGenericFromPath(screen.current_path)
-				if p != nil {
+			b, p, _ := screen.db.getGenericFromPath(screen.current_path)
+			if b != nil {
+				if screen.mode == MODE_CHANGE_KEY {
+					new_name := screen.input_modal.GetValue()
+					if renameBucket(screen.current_path, new_name) != nil {
+						screen.setMessage("Error renaming bucket.")
+					} else {
+						b.name = new_name
+						screen.current_path[len(screen.current_path)-1] = b.name
+						screen.setMessage("Bucket Renamed!")
+						screen.refreshDatabase()
+					}
+				}
+			} else if p != nil {
+				if screen.mode == MODE_CHANGE_KEY {
+					new_key := screen.input_modal.GetValue()
 					if updatePairKey(screen.current_path, new_key) != nil {
 						screen.setMessage("Error occurred updating Pair.")
 					} else {
@@ -192,11 +204,8 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 						screen.setMessage("Pair updated!")
 						screen.refreshDatabase()
 					}
-				}
-			} else if screen.mode == MODE_CHANGE_VAL {
-				new_val := screen.input_modal.GetValue()
-				_, p, _ := screen.db.getGenericFromPath(screen.current_path)
-				if p != nil {
+				} else if screen.mode == MODE_CHANGE_VAL {
+					new_val := screen.input_modal.GetValue()
 					if updatePairValue(screen.current_path, new_val) != nil {
 						screen.setMessage("Error occurred updating Pair.")
 					} else {
@@ -260,7 +269,6 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 		}
 	} else {
 		screen.input_modal.HandleKeyPress(event)
-		logToFile("> Insert Key Event")
 		if screen.input_modal.IsDone() {
 			new_val := screen.input_modal.GetValue()
 			screen.input_modal.Clear()
@@ -285,27 +293,32 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 				}
 			}
 
+			parent_b, _, _ := screen.db.getGenericFromPath(insert_path)
 			if screen.mode&MODE_INSERT_BUCKET == MODE_INSERT_BUCKET {
-				logToFile(">> Inserting Bucket")
-				screen.setMessage(strings.Join(insert_path, "/"))
 				err := insertBucket(insert_path, new_val)
 				if err != nil {
 					screen.setMessage(fmt.Sprintf("%s => %s", err, insert_path))
-					logToFile(fmt.Sprintf(">> >> Error: %s", err))
+				} else {
+					if parent_b != nil {
+						parent_b.expanded = true
+					}
 				}
+				screen.current_path = append(insert_path, new_val)
+
 				screen.refreshDatabase()
 				screen.mode = MODE_BROWSE
 				screen.input_modal.Clear()
 			} else if screen.mode&MODE_INSERT_PAIR == MODE_INSERT_PAIR {
-				logToFile(">> Inserting Pair")
 				err := insertPair(insert_path, new_val, "")
 				if err != nil {
 					screen.setMessage(fmt.Sprintf("%s => %s", err, insert_path))
-					logToFile(fmt.Sprintf(">> >> Error: %s", err))
 					screen.refreshDatabase()
 					screen.mode = MODE_BROWSE
 					screen.input_modal.Clear()
 				} else {
+					if parent_b != nil {
+						parent_b.expanded = true
+					}
 					screen.current_path = append(insert_path, new_val)
 					screen.refreshDatabase()
 					screen.startEditItem()
@@ -388,6 +401,9 @@ func (screen *BrowserScreen) drawScreen(style Style) {
 		// Force a bucket insert
 		screen.startInsertItemAtParent(TYPE_BUCKET)
 	}
+	if screen.message == "" {
+		screen.setMessageWithTimeout("Press '?' for help", -1)
+	}
 	screen.drawLeftPane(style)
 	screen.drawRightPane(style)
 	screen.drawHeader(style)
@@ -415,7 +431,7 @@ func (screen *BrowserScreen) drawFooter(style Style) {
 }
 func (screen *BrowserScreen) drawLeftPane(style Style) {
 	w, h := termbox.Size()
-	if w >= 80 {
+	if w > 80 {
 		w = w / 2
 	}
 	screen.view_port.number_of_rows = h - 2
@@ -453,7 +469,7 @@ func (screen *BrowserScreen) drawLeftPane(style Style) {
 }
 func (screen *BrowserScreen) drawRightPane(style Style) {
 	w, h := termbox.Size()
-	if w >= 80 {
+	if w > 80 {
 		// Screen is wide enough, split it
 		termbox_util.FillWithChar('=', 0, 1, w, 1, style.default_fg, style.default_bg)
 		termbox_util.FillWithChar('|', (w / 2), screen.view_port.first_row-1, (w / 2), h, style.default_fg, style.default_bg)
@@ -484,7 +500,7 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
  */
 func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int {
 	w, _ := termbox.Size()
-	if w >= 80 {
+	if w > 80 {
 		w = w / 2
 	}
 	used_lines := 0
@@ -520,7 +536,7 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 
 func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 	w, _ := termbox.Size()
-	if w >= 80 {
+	if w > 80 {
 		w = w / 2
 	}
 	bucket_fg := style.default_fg
@@ -603,7 +619,10 @@ func (screen *BrowserScreen) startRenameItem() bool {
 
 func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 	w, h := termbox.Size()
-	inp_w, inp_h := (w / 2), 7
+	inp_w, inp_h := w-1, 7
+	if w > 80 {
+		inp_w, inp_h = (w / 2), 7
+	}
 	inp_x, inp_y := ((w / 2) - (inp_w / 2)), ((h / 2) - inp_h)
 	mod := termbox_util.CreateInputModal("", inp_x, inp_y, inp_w, inp_h, termbox.ColorWhite, termbox.ColorBlack)
 	screen.input_modal = mod
@@ -623,13 +642,24 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 		} else {
 			ins_path = strings.Join(screen.current_path[:len(screen.current_path)-1], "/") + "/"
 		}
+		title_prfx := ""
 		if tp == TYPE_BUCKET {
-			mod.SetTitle(termbox_util.AlignText("Create Bucket at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
+			title_prfx = "New Bucket: "
+		} else if tp == TYPE_PAIR {
+			title_prfx = "New Pair: "
+		}
+		title_text := title_prfx + ins_path
+		if len(title_text) > inp_w {
+			trunc_w := len(title_text) - inp_w
+			title_text = title_prfx + "..." + ins_path[trunc_w+3:]
+		}
+		if tp == TYPE_BUCKET {
+			mod.SetTitle(termbox_util.AlignText(title_text, inp_w, termbox_util.ALIGN_CENTER))
 			screen.mode = MODE_INSERT_BUCKET | MODE_MOD_TO_PARENT
 			mod.Show()
 			return true
 		} else if tp == TYPE_PAIR {
-			mod.SetTitle(termbox_util.AlignText("Create Pair at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termbox_util.AlignText(title_text, inp_w, termbox_util.ALIGN_CENTER))
 			mod.Show()
 			screen.mode = MODE_INSERT_PAIR | MODE_MOD_TO_PARENT
 			return true
@@ -640,7 +670,10 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 
 func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 	w, h := termbox.Size()
-	inp_w, inp_h := (w / 2), 7
+	inp_w, inp_h := w-1, 7
+	if w > 80 {
+		inp_w, inp_h = (w / 2), 7
+	}
 	inp_x, inp_y := ((w / 2) - (inp_w / 2)), ((h / 2) - inp_h)
 	mod := termbox_util.CreateInputModal("", inp_x, inp_y, inp_w, inp_h, termbox.ColorWhite, termbox.ColorBlack)
 	screen.input_modal = mod
@@ -651,18 +684,26 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 	} else {
 		ins_path = strings.Join(screen.current_path, "/") + "/"
 	}
-	logToFile("  startInsertItem")
+	title_prfx := ""
 	if tp == TYPE_BUCKET {
-		mod.SetTitle(termbox_util.AlignText("Create Bucket at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
+		title_prfx = "New Bucket: "
+	} else if tp == TYPE_PAIR {
+		title_prfx = "New Pair: "
+	}
+	title_text := title_prfx + ins_path
+	if len(title_text) > inp_w {
+		trunc_w := len(title_text) - inp_w
+		title_text = title_prfx + "..." + ins_path[trunc_w+3:]
+	}
+	if tp == TYPE_BUCKET {
+		mod.SetTitle(termbox_util.AlignText(title_text, inp_w, termbox_util.ALIGN_CENTER))
 		screen.mode = MODE_INSERT_BUCKET
-		logToFile("    MODE_INSERT_BUCKET")
 		mod.Show()
 		return true
 	} else if tp == TYPE_PAIR {
-		mod.SetTitle(termbox_util.AlignText("Create Pair at "+ins_path, inp_w, termbox_util.ALIGN_CENTER))
+		mod.SetTitle(termbox_util.AlignText(title_text, inp_w, termbox_util.ALIGN_CENTER))
 		mod.Show()
 		screen.mode = MODE_INSERT_PAIR
-		logToFile("    MODE_INSERT_PAIR")
 		return true
 	}
 	return false
