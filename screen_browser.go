@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/br0xen/termbox-util"
 	"github.com/nsf/termbox-go"
-	"gogs.bullercodeworks.com/brian/termbox-util"
 	"strings"
 	"time"
 )
@@ -16,7 +16,6 @@ type ViewPort struct {
 
 type BrowserScreen struct {
 	db              *BoltDB
-	cursor          Cursor
 	view_port       ViewPort
 	queued_command  string
 	current_path    []string

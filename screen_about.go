@@ -44,8 +44,20 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		"| |_|   ||       ||       ||   |  | |_|   ||   |  | ||       ||   _   | _____| ||   |___ |   |  | |",
 		"|_______||_______||_______||___|  |_______||___|  |_||_______||__| |__||_______||_______||___|  |_|",
 	}
+	if width < 100 {
+		template = [...]string{
+			" ____  ____  _   _____  ____  ____   ____  _     _  ____  ___  ____   ",
+			"|  _ ||    || | |     ||  _ ||  _ | |    || | _ | ||    ||   ||  _ |  ",
+			"| |_||| _  || | |_   _|| |_||| | || | _  || || || || ___||  _|| | ||  ",
+			"|    ||| | || |   | |  |    || |_|| || | ||       |||___ | |_ | |_||_ ",
+			"|  _ |||_| || |___| |  |  _ ||  _  |||_| ||       ||__  ||  _||  __  |",
+			"| |_|||    ||     | |  | |_||| | | ||    ||   _   | __| || |_ | |  | |",
+			"|____||____||_____|_|  |____||_| |_||____||__| |__||____||___||_|  |_|",
+		}
+	}
 	first_line := template[0]
 	start_x := (width - len(first_line)) / 2
+	//start_x := (width - len(first_line)) / 2
 	start_y := ((height - 2*len(template)) / 2) - 2
 	x_pos := start_x
 	y_pos := start_y
@@ -97,7 +109,7 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		{"?", "this screen"},
 		{"q", "quit program"},
 	}
-	x_pos = start_x + 20
+	x_pos = start_x // + 20
 	y_pos++
 
 	drawCommandsAtPoint(commands1[:], x_pos, y_pos+1, style)

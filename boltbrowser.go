@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/br0xen/bolt"
+	"github.com/boltdb/bolt"
 	"github.com/nsf/termbox-go"
 	"os"
 	"syscall"

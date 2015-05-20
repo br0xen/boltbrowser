@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/br0xen/bolt"
+	"github.com/boltdb/bolt"
 	"os"
 	"strings"
 )
