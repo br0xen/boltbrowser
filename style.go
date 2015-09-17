@@ -2,23 +2,26 @@ package main
 
 import "github.com/nsf/termbox-go"
 
+/*
+Style Defines the colors for the terminal display, basically
+*/
 type Style struct {
-	default_bg termbox.Attribute
-	default_fg termbox.Attribute
-	title_fg   termbox.Attribute
-	title_bg   termbox.Attribute
-	cursor_fg  termbox.Attribute
-	cursor_bg  termbox.Attribute
+	defaultBg termbox.Attribute
+	defaultFg termbox.Attribute
+	titleFg   termbox.Attribute
+	titleBg   termbox.Attribute
+	cursorFg  termbox.Attribute
+	cursorBg  termbox.Attribute
 }
 
 func defaultStyle() Style {
 	var style Style
-	style.default_bg = termbox.ColorBlack
-	style.default_fg = termbox.ColorWhite
-	style.title_fg = termbox.ColorBlack
-	style.title_bg = termbox.ColorGreen
-	style.cursor_fg = termbox.ColorBlack
-	style.cursor_bg = termbox.ColorGreen
+	style.defaultBg = termbox.ColorBlack
+	style.defaultFg = termbox.ColorWhite
+	style.titleFg = termbox.ColorBlack
+	style.titleBg = termbox.ColorGreen
+	style.cursorFg = termbox.ColorBlack
+	style.cursorBg = termbox.ColorGreen
 
 	return style
 }

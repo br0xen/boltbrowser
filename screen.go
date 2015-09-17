@@ -2,6 +2,7 @@ package main
 
 import "github.com/nsf/termbox-go"
 
+// Screen is a basic structure for all of the applications screens
 type Screen interface {
 	handleKeyEvent(event termbox.Event) int
 	performLayout()
@@ -9,19 +10,22 @@ type Screen interface {
 }
 
 const (
-	BROWSER_SCREEN_INDEX = iota
-	ABOUT_SCREEN_INDEX
-	EXIT_SCREEN_INDEX
+	// BrowserScreenIndex is the index
+	BrowserScreenIndex = iota
+	// AboutScreenIndex The idx number for the 'About' Screen
+	AboutScreenIndex
+	// ExitScreenIndex The idx number for Exiting
+	ExitScreenIndex
 )
 
 func defaultScreensForData(db *BoltDB) []Screen {
-	var view_port ViewPort
+	var viewPort ViewPort
 
-	browser_screen := BrowserScreen{db: db, view_port: view_port}
-	about_screen := AboutScreen(0)
+	browserScreen := BrowserScreen{db: db, viewPort: viewPort}
+	aboutScreen := AboutScreen(0)
 	screens := [...]Screen{
-		&browser_screen,
-		&about_screen,
+		&browserScreen,
+		&aboutScreen,
 	}
 
 	return screens[:]
@@ -33,7 +37,7 @@ func drawBackground(bg termbox.Attribute) {
 
 func layoutAndDrawScreen(screen Screen, style Style) {
 	screen.performLayout()
-	drawBackground(style.default_bg)
+	drawBackground(style.defaultBg)
 	screen.drawScreen(style)
 	termbox.Flush()
 }

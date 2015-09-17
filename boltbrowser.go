@@ -2,22 +2,26 @@ package main
 
 import (
 	"fmt"
-	"github.com/boltdb/bolt"
-	"github.com/nsf/termbox-go"
 	"os"
 	"syscall"
+
+	"github.com/boltdb/bolt"
+	"github.com/nsf/termbox-go"
 )
 
-const PROGRAM_NAME = "boltbrowser"
+/*
+ProgramName is the name of the program
+*/
+const ProgramName = "boltbrowser"
 
-var database_file string
+var databaseFile string
 var db *bolt.DB
 var memBolt *BoltDB
 
 func mainLoop(memBolt *BoltDB, style Style) {
 	screens := defaultScreensForData(memBolt)
-	display_screen := screens[BROWSER_SCREEN_INDEX]
-	layoutAndDrawScreen(display_screen, style)
+	displayScreen := screens[BrowserScreenIndex]
+	layoutAndDrawScreen(displayScreen, style)
 	for {
 		event := termbox.PollEvent()
 		if event.Type == termbox.EventKey {
@@ -27,16 +31,16 @@ func mainLoop(memBolt *BoltDB, style Style) {
 				process.Signal(syscall.SIGSTOP)
 				termbox.Init()
 			}
-			new_screen_index := display_screen.handleKeyEvent(event)
-			if new_screen_index < len(screens) {
-				display_screen = screens[new_screen_index]
-				layoutAndDrawScreen(display_screen, style)
+			newScreenIndex := displayScreen.handleKeyEvent(event)
+			if newScreenIndex < len(screens) {
+				displayScreen = screens[newScreenIndex]
+				layoutAndDrawScreen(displayScreen, style)
 			} else {
 				break
 			}
 		}
 		if event.Type == termbox.EventResize {
-			layoutAndDrawScreen(display_screen, style)
+			layoutAndDrawScreen(displayScreen, style)
 		}
 	}
 }
@@ -45,12 +49,12 @@ func main() {
 	var err error
 
 	if len(os.Args) != 2 {
-		fmt.Printf("Usage: %s <filename>\n", PROGRAM_NAME)
+		fmt.Printf("Usage: %s <filename>\n", ProgramName)
 		os.Exit(1)
 	}
 
-	database_file := os.Args[1]
-	db, err = bolt.Open(database_file, 0600, nil)
+	databaseFile := os.Args[1]
+	db, err = bolt.Open(databaseFile, 0600, nil)
 	if err != nil {
 		fmt.Printf("Error reading file: %q\n", err.Error())
 		os.Exit(1)
