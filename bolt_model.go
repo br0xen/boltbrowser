@@ -3,25 +3,34 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/boltdb/bolt"
 	"os"
 	"strings"
+
+	"github.com/boltdb/bolt"
 )
 
-// A Database, basically a collection of buckets
+/*
+BoltDB A Database, basically a collection of buckets
+*/
 type BoltDB struct {
 	buckets []BoltBucket
 }
 
+/*
+BoltBucket is just a struct representation of a Bucket in the Bolt DB
+*/
 type BoltBucket struct {
-	name       string
-	pairs      []BoltPair
-	buckets    []BoltBucket
-	parent     *BoltBucket
-	expanded   bool
-	error_flag bool
+	name      string
+	pairs     []BoltPair
+	buckets   []BoltBucket
+	parent    *BoltBucket
+	expanded  bool
+	errorFlag bool
 }
 
+/*
+BoltPair is just a struct representation of a Pair in the Bolt DB
+*/
 type BoltPair struct {
 	parent *BoltBucket
 	key    string
@@ -81,7 +90,7 @@ func (bd *BoltDB) getPairFromPath(path []string) (*BoltPair, error) {
 
 func (bd *BoltDB) getVisibleItemCount(path []string) (int, error) {
 	vis := 0
-	var ret_err error
+	var retErr error
 	if len(path) == 0 {
 		for i := range bd.buckets {
 			n, err := bd.getVisibleItemCount(bd.buckets[i].GetPath())
@@ -96,7 +105,7 @@ func (bd *BoltDB) getVisibleItemCount(path []string) (int, error) {
 			return 0, err
 		}
 		// 1 for the bucket
-		vis += 1
+		vis++
 		if b.expanded {
 			// This bucket is expanded, add up it's children
 			// * 1 for each pair
@@ -111,58 +120,56 @@ func (bd *BoltDB) getVisibleItemCount(path []string) (int, error) {
 			}
 		}
 	}
-	return vis, ret_err
+	return vis, retErr
 }
 
 func (bd *BoltDB) buildVisiblePathSlice() ([]string, error) {
-	var ret_slice []string
-	var ret_err error
+	var retSlice []string
+	var retErr error
 	// The root path, recurse for root buckets
 	for i := range bd.buckets {
-		bkt_s, bkt_err := bd.buckets[i].buildVisiblePathSlice([]string{})
-		if bkt_err == nil {
-			ret_slice = append(ret_slice, bkt_s...)
+		bktS, bktErr := bd.buckets[i].buildVisiblePathSlice([]string{})
+		if bktErr == nil {
+			retSlice = append(retSlice, bktS...)
 		} else {
 			// Something went wrong, set the error flag
-			bd.buckets[i].error_flag = true
+			bd.buckets[i].errorFlag = true
 		}
 	}
-	return ret_slice, ret_err
+	return retSlice, retErr
 }
 
 func (bd *BoltDB) getPrevVisiblePath(path []string) []string {
-	vis_paths, err := bd.buildVisiblePathSlice()
+	visPaths, err := bd.buildVisiblePathSlice()
 	if path == nil {
-		if len(vis_paths) > 0 {
-			return strings.Split(vis_paths[len(vis_paths)-1], "/")
-		} else {
-			return nil
+		if len(visPaths) > 0 {
+			return strings.Split(visPaths[len(visPaths)-1], "/")
 		}
+		return nil
 	}
 	if err == nil {
-		find_path := strings.Join(path, "/")
-		for i := range vis_paths {
-			if vis_paths[i] == find_path && i > 0 {
-				return strings.Split(vis_paths[i-1], "/")
+		findPath := strings.Join(path, "/")
+		for i := range visPaths {
+			if visPaths[i] == findPath && i > 0 {
+				return strings.Split(visPaths[i-1], "/")
 			}
 		}
 	}
 	return nil
 }
 func (bd *BoltDB) getNextVisiblePath(path []string) []string {
-	vis_paths, err := bd.buildVisiblePathSlice()
+	visPaths, err := bd.buildVisiblePathSlice()
 	if path == nil {
-		if len(vis_paths) > 0 {
-			return strings.Split(vis_paths[0], "/")
-		} else {
-			return nil
+		if len(visPaths) > 0 {
+			return strings.Split(visPaths[0], "/")
 		}
+		return nil
 	}
 	if err == nil {
-		find_path := strings.Join(path, "/")
-		for i := range vis_paths {
-			if vis_paths[i] == find_path && i < len(vis_paths)-1 {
-				return strings.Split(vis_paths[i+1], "/")
+		findPath := strings.Join(path, "/")
+		for i := range visPaths {
+			if visPaths[i] == findPath && i < len(visPaths)-1 {
+				return strings.Split(visPaths[i+1], "/")
 			}
 		}
 	}
@@ -234,37 +241,39 @@ func (bd *BoltDB) refreshDatabase() *BoltDB {
 	return memBolt
 }
 
+/*
+GetPath returns the database path leading to this BoltBucket
+*/
 func (b *BoltBucket) GetPath() []string {
 	if b.parent != nil {
 		return append(b.parent.GetPath(), b.name)
-	} else {
-		return []string{b.name}
 	}
+	return []string{b.name}
 }
 
 func (b *BoltBucket) buildVisiblePathSlice(prefix []string) ([]string, error) {
-	var ret_slice []string
-	var ret_err error
+	var retSlice []string
+	var retErr error
 	// Add this bucket to the slice
 	prefix = append(prefix, b.name)
-	ret_slice = append(ret_slice, strings.Join(prefix, "/"))
+	retSlice = append(retSlice, strings.Join(prefix, "/"))
 	if b.expanded {
 		// Add subbuckets
 		for i := range b.buckets {
-			bkt_s, bkt_err := b.buckets[i].buildVisiblePathSlice(prefix)
-			if bkt_err == nil {
-				ret_slice = append(ret_slice, bkt_s...)
+			bktS, bktErr := b.buckets[i].buildVisiblePathSlice(prefix)
+			if bktErr == nil {
+				retSlice = append(retSlice, bktS...)
 			} else {
 				// Something went wrong, set the error flag
-				b.buckets[i].error_flag = true
+				b.buckets[i].errorFlag = true
 			}
 		}
 		// Add Pairs
 		for i := range b.pairs {
-			ret_slice = append(ret_slice, strings.Join(prefix, "/")+"/"+b.pairs[i].key)
+			retSlice = append(retSlice, strings.Join(prefix, "/")+"/"+b.pairs[i].key)
 		}
 	}
-	return ret_slice, ret_err
+	return retSlice, retErr
 }
 
 func (b *BoltBucket) syncOpenBuckets(shadow *BoltBucket) {
@@ -297,6 +306,9 @@ func (b *BoltBucket) getPair(k string) (*BoltPair, error) {
 	return nil, errors.New("Pair Not Found")
 }
 
+/*
+GetPath Returns the path of the BoltPair
+*/
 func (p *BoltPair) GetPath() []string {
 	return append(p.parent.GetPath(), p.key)
 }
@@ -310,14 +322,14 @@ func (p *BoltPair) GetPath() []string {
  */
 func addBucketFromBoltBucket(path []string, bb *BoltBucket) error {
 	if err := insertBucket(path, bb.name); err == nil {
-		bucket_path := append(path, bb.name)
+		bucketPath := append(path, bb.name)
 		for i := range bb.pairs {
-			if err = insertPair(bucket_path, bb.pairs[i].key, bb.pairs[i].val); err != nil {
+			if err = insertPair(bucketPath, bb.pairs[i].key, bb.pairs[i].val); err != nil {
 				return err
 			}
 		}
 		for i := range bb.buckets {
-			if err = addBucketFromBoltBucket(bucket_path, &bb.buckets[i]); err != nil {
+			if err = addBucketFromBoltBucket(bucketPath, &bb.buckets[i]); err != nil {
 				return err
 			}
 		}
@@ -332,30 +344,28 @@ func deleteKey(path []string) error {
 		if len(path) == 1 {
 			// Deleting a root bucket
 			return tx.DeleteBucket([]byte(path[0]))
-		} else {
-			b := tx.Bucket([]byte(path[0]))
-			if b != nil {
-				if len(path) > 1 {
-					for i := range path[1 : len(path)-1] {
-						b = b.Bucket([]byte(path[i+1]))
-						if b == nil {
-							return errors.New("deleteKey: Invalid Path")
-						}
+		}
+		b := tx.Bucket([]byte(path[0]))
+		if b != nil {
+			if len(path) > 1 {
+				for i := range path[1 : len(path)-1] {
+					b = b.Bucket([]byte(path[i+1]))
+					if b == nil {
+						return errors.New("deleteKey: Invalid Path")
 					}
 				}
-				// Now delete the last key in the path
-				var err error
-				if delete_bkt := b.Bucket([]byte(path[len(path)-1])); delete_bkt == nil {
-					// Must be a pair
-					err = b.Delete([]byte(path[len(path)-1]))
-				} else {
-					err = b.DeleteBucket([]byte(path[len(path)-1]))
-				}
-				return err
-			} else {
-				return errors.New("deleteKey: Invalid Path")
 			}
+			// Now delete the last key in the path
+			var err error
+			if deleteBkt := b.Bucket([]byte(path[len(path)-1])); deleteBkt == nil {
+				// Must be a pair
+				err = b.Delete([]byte(path[len(path)-1]))
+			} else {
+				err = b.DeleteBucket([]byte(path[len(path)-1]))
+			}
+			return err
 		}
+		return errors.New("deleteKey: Invalid Path")
 	})
 	return err
 }
@@ -425,8 +435,8 @@ func renameBucket(path []string, name string) error {
 	bb.name = name
 	// And re-add it
 
-	parent_path := path[:len(path)-1]
-	if err = addBucketFromBoltBucket(parent_path, bb); err != nil {
+	parentPath := path[:len(path)-1]
+	if err = addBucketFromBoltBucket(parentPath, bb); err != nil {
 		return err
 	}
 	return nil
@@ -455,9 +465,8 @@ func updatePairKey(path []string, k string) error {
 			}
 			// Now update the last key in the path
 			return err
-		} else {
-			return errors.New("updatePairValue: Invalid Path")
 		}
+		return errors.New("updatePairValue: Invalid Path")
 	})
 	return err
 }
@@ -479,9 +488,8 @@ func updatePairValue(path []string, v string) error {
 			// Now update the last key in the path
 			err := b.Put([]byte(path[len(path)-1]), []byte(v))
 			return err
-		} else {
-			return errors.New("updatePairValue: Invalid Path")
 		}
+		return errors.New("updatePairValue: Invalid Path")
 	})
 	return err
 }
@@ -496,27 +504,27 @@ func insertBucket(path []string, n string) error {
 				return fmt.Errorf("insertBucket: %s", err)
 			}
 		} else {
-			root_bucket, path := path[0], path[1:]
-			b := tx.Bucket([]byte(root_bucket))
+			rootBucket, path := path[0], path[1:]
+			b := tx.Bucket([]byte(rootBucket))
 			if b != nil {
 				for len(path) > 0 {
-					tst_bucket := ""
-					tst_bucket, path = path[0], path[1:]
-					n_b := b.Bucket([]byte(tst_bucket))
-					if n_b == nil {
+					tstBucket := ""
+					tstBucket, path = path[0], path[1:]
+					nB := b.Bucket([]byte(tstBucket))
+					if nB == nil {
 						// Not a bucket, if we're out of path, just move on
 						if len(path) != 0 {
 							// Out of path, error
 							return errors.New("insertBucket: Invalid Path 1")
 						}
 					} else {
-						b = n_b
+						b = nB
 					}
 				}
 				_, err := b.CreateBucket([]byte(n))
 				return err
 			}
-			return fmt.Errorf("insertBucket: Invalid Path %s", root_bucket)
+			return fmt.Errorf("insertBucket: Invalid Path %s", rootBucket)
 		}
 		return nil
 	})
@@ -528,23 +536,22 @@ func insertPair(path []string, k string, v string) error {
 	err := db.Update(func(tx *bolt.Tx) error {
 		if len(path) == 0 {
 			// We cannot insert a pair at root
-			return errors.New("insertPair: Cannot insert pair at root.")
-		} else {
-			var err error
-			b := tx.Bucket([]byte(path[0]))
-			if b != nil {
-				if len(path) > 0 {
-					for i := 1; i < len(path); i++ {
-						b = b.Bucket([]byte(path[i]))
-						if b == nil {
-							return fmt.Errorf("insertPair: %s", err)
-						}
+			return errors.New("insertPair: Cannot insert pair at root")
+		}
+		var err error
+		b := tx.Bucket([]byte(path[0]))
+		if b != nil {
+			if len(path) > 0 {
+				for i := 1; i < len(path); i++ {
+					b = b.Bucket([]byte(path[i]))
+					if b == nil {
+						return fmt.Errorf("insertPair: %s", err)
 					}
 				}
-				err := b.Put([]byte(k), []byte(v))
-				if err != nil {
-					return fmt.Errorf("insertPair: %s", err)
-				}
+			}
+			err := b.Put([]byte(k), []byte(v))
+			if err != nil {
+				return fmt.Errorf("insertPair: %s", err)
 			}
 		}
 		return nil

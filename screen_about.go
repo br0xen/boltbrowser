@@ -2,38 +2,45 @@ package main
 
 import (
 	"fmt"
-	"github.com/br0xen/termbox-util"
+
 	"github.com/nsf/termbox-go"
+	"gogs.bullercodeworks.com/brian/termbox-util"
 )
 
+/*
+Command is a struct for associating descriptions to keys
+*/
 type Command struct {
 	key         string
 	description string
 }
 
+/*
+AboutScreen is just a basic 'int' type that we can extend to make this screen
+*/
 type AboutScreen int
 
 func drawCommandsAtPoint(commands []Command, x int, y int, style Style) {
-	x_pos, y_pos := x, y
+	xPos, yPos := x, y
 	for index, cmd := range commands {
-		termbox_util.DrawStringAtPoint(fmt.Sprintf("%6s", cmd.key), x_pos, y_pos, style.default_fg, style.default_bg)
-		termbox_util.DrawStringAtPoint(cmd.description, x_pos+8, y_pos, style.default_fg, style.default_bg)
-		y_pos++
+		termbox_util.DrawStringAtPoint(fmt.Sprintf("%6s", cmd.key), xPos, yPos, style.defaultFg, style.defaultBg)
+		termbox_util.DrawStringAtPoint(cmd.description, xPos+8, yPos, style.defaultFg, style.defaultBg)
+		yPos++
 		if index > 2 && index%2 == 1 {
-			y_pos++
+			yPos++
 		}
 	}
 }
 
 func (screen *AboutScreen) handleKeyEvent(event termbox.Event) int {
-	return BROWSER_SCREEN_INDEX
+	return BrowserScreenIndex
 }
 
 func (screen *AboutScreen) performLayout() {}
 
 func (screen *AboutScreen) drawScreen(style Style) {
-	default_fg := style.default_fg
-	default_bg := style.default_bg
+	defaultFg := style.defaultFg
+	defaultBg := style.defaultBg
 	width, height := termbox.Size()
 	template := [...]string{
 		" _______  _______  ___    _______  _______  ______    _______  _     _  _______  _______  ______   ",
@@ -44,34 +51,46 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		"| |_|   ||       ||       ||   |  | |_|   ||   |  | ||       ||   _   | _____| ||   |___ |   |  | |",
 		"|_______||_______||_______||___|  |_______||___|  |_||_______||__| |__||_______||_______||___|  |_|",
 	}
-	first_line := template[0]
-	start_x := (width - len(first_line)) / 2
-	start_y := ((height - 2*len(template)) / 2) - 2
-	x_pos := start_x
-	y_pos := start_y
+	if width < 100 {
+		template = [...]string{
+			" ____  ____  _   _____  ____  ____   ____  _     _  ____  ___  ____   ",
+			"|  _ ||    || | |     ||  _ ||  _ | |    || | _ | ||    ||   ||  _ |  ",
+			"| |_||| _  || | |_   _|| |_||| | || | _  || || || || ___||  _|| | ||  ",
+			"|    ||| | || |   | |  |    || |_|| || | ||       |||___ | |_ | |_||_ ",
+			"|  _ |||_| || |___| |  |  _ ||  _  |||_| ||       ||__  ||  _||  __  |",
+			"| |_|||    ||     | |  | |_||| | | ||    ||   _   | __| || |_ | |  | |",
+			"|____||____||_____|_|  |____||_| |_||____||__| |__||____||___||_|  |_|",
+		}
+	}
+	firstLine := template[0]
+	startX := (width - len(firstLine)) / 2
+	//startX := (width - len(firstLine)) / 2
+	startY := ((height - 2*len(template)) / 2) - 2
+	xPos := startX
+	yPos := startY
 	if height <= 20 {
 		title := "BoltBrowser"
-		start_y = 0
-		y_pos = 0
-		termbox_util.DrawStringAtPoint(title, (width-len(title))/2, start_y, style.title_fg, style.title_bg)
+		startY = 0
+		yPos = 0
+		termbox_util.DrawStringAtPoint(title, (width-len(title))/2, startY, style.titleFg, style.titleBg)
 	} else {
 		if height < 25 {
-			start_y = 0
-			y_pos = 0
+			startY = 0
+			yPos = 0
 		}
 		for _, line := range template {
-			x_pos = start_x
+			xPos = startX
 			for _, runeValue := range line {
-				bg := default_bg
+				bg := defaultBg
 				displayRune := ' '
 				if runeValue != ' ' {
 					//bg = termbox.Attribute(125)
 					displayRune = runeValue
-					termbox.SetCell(x_pos, y_pos, displayRune, default_fg, bg)
+					termbox.SetCell(xPos, yPos, displayRune, defaultFg, bg)
 				}
-				x_pos++
+				xPos++
 			}
-			y_pos++
+			yPos++
 		}
 	}
 
@@ -97,11 +116,11 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		{"?", "this screen"},
 		{"q", "quit program"},
 	}
-	x_pos = start_x + 20
-	y_pos++
+	xPos = startX // + 20
+	yPos++
 
-	drawCommandsAtPoint(commands1[:], x_pos, y_pos+1, style)
-	drawCommandsAtPoint(commands2[:], x_pos+20, y_pos+1, style)
-	exit_txt := "Press any key to return to browser"
-	termbox_util.DrawStringAtPoint(exit_txt, (width-len(exit_txt))/2, height-1, style.title_fg, style.title_bg)
+	drawCommandsAtPoint(commands1[:], xPos, yPos+1, style)
+	drawCommandsAtPoint(commands2[:], xPos+20, yPos+1, style)
+	exitTxt := "Press any key to return to browser"
+	termbox_util.DrawStringAtPoint(exitTxt, (width-len(exitTxt))/2, height-1, style.titleFg, style.titleBg)
 }
