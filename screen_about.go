@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
+	"github.com/br0xen/termbox-util"
 	"github.com/nsf/termbox-go"
-	"gogs.bullercodeworks.com/brian/termbox-util"
 )
 
 /*
@@ -23,8 +23,8 @@ type AboutScreen int
 func drawCommandsAtPoint(commands []Command, x int, y int, style Style) {
 	xPos, yPos := x, y
 	for index, cmd := range commands {
-		termbox_util.DrawStringAtPoint(fmt.Sprintf("%6s", cmd.key), xPos, yPos, style.defaultFg, style.defaultBg)
-		termbox_util.DrawStringAtPoint(cmd.description, xPos+8, yPos, style.defaultFg, style.defaultBg)
+		termboxUtil.DrawStringAtPoint(fmt.Sprintf("%6s", cmd.key), xPos, yPos, style.defaultFg, style.defaultBg)
+		termboxUtil.DrawStringAtPoint(cmd.description, xPos+8, yPos, style.defaultFg, style.defaultBg)
 		yPos++
 		if index > 2 && index%2 == 1 {
 			yPos++
@@ -72,7 +72,7 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		title := "BoltBrowser"
 		startY = 0
 		yPos = 0
-		termbox_util.DrawStringAtPoint(title, (width-len(title))/2, startY, style.titleFg, style.titleBg)
+		termboxUtil.DrawStringAtPoint(title, (width-len(title))/2, startY, style.titleFg, style.titleBg)
 	} else {
 		if height < 25 {
 			startY = 0
@@ -122,5 +122,5 @@ func (screen *AboutScreen) drawScreen(style Style) {
 	drawCommandsAtPoint(commands1[:], xPos, yPos+1, style)
 	drawCommandsAtPoint(commands2[:], xPos+20, yPos+1, style)
 	exitTxt := "Press any key to return to browser"
-	termbox_util.DrawStringAtPoint(exitTxt, (width-len(exitTxt))/2, height-1, style.titleFg, style.titleBg)
+	termboxUtil.DrawStringAtPoint(exitTxt, (width-len(exitTxt))/2, height-1, style.titleFg, style.titleBg)
 }
