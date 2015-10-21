@@ -29,8 +29,8 @@ type BrowserScreen struct {
 	currentType    int
 	message        string
 	mode           BrowserMode
-	inputModal     *termbox_util.InputModal
-	confirmModal   *termbox_util.ConfirmModal
+	inputModal     *termboxUtil.InputModal
+	confirmModal   *termboxUtil.ConfirmModal
 	messageTimeout time.Duration
 	messageTime    time.Time
 }
@@ -431,14 +431,14 @@ func (screen *BrowserScreen) drawScreen(style Style) {
 func (screen *BrowserScreen) drawHeader(style Style) {
 	width, _ := termbox.Size()
 	spaces := strings.Repeat(" ", (width / 2))
-	termbox_util.DrawStringAtPoint(fmt.Sprintf("%s%s%s", spaces, ProgramName, spaces), 0, 0, style.titleFg, style.titleBg)
+	termboxUtil.DrawStringAtPoint(fmt.Sprintf("%s%s%s", spaces, ProgramName, spaces), 0, 0, style.titleFg, style.titleBg)
 }
 func (screen *BrowserScreen) drawFooter(style Style) {
 	if screen.messageTimeout > 0 && time.Since(screen.messageTime) > screen.messageTimeout {
 		screen.clearMessage()
 	}
 	_, height := termbox.Size()
-	termbox_util.DrawStringAtPoint(screen.message, 0, height-1, style.defaultFg, style.defaultBg)
+	termboxUtil.DrawStringAtPoint(screen.message, 0, height-1, style.defaultFg, style.defaultBg)
 }
 func (screen *BrowserScreen) drawLeftPane(style Style) {
 	w, h := termbox.Size()
@@ -447,7 +447,7 @@ func (screen *BrowserScreen) drawLeftPane(style Style) {
 	}
 	screen.viewPort.numberOfRows = h - 2
 
-	termbox_util.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
+	termboxUtil.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
 	y := 2
 	screen.viewPort.firstRow = y
 	if len(screen.currentPath) == 0 {
@@ -482,21 +482,21 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 	w, h := termbox.Size()
 	if w > 80 {
 		// Screen is wide enough, split it
-		termbox_util.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
-		termbox_util.FillWithChar('|', (w / 2), screen.viewPort.firstRow-1, (w / 2), h, style.defaultFg, style.defaultBg)
+		termboxUtil.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
+		termboxUtil.FillWithChar('|', (w / 2), screen.viewPort.firstRow-1, (w / 2), h, style.defaultFg, style.defaultBg)
 
 		b, p, err := screen.db.getGenericFromPath(screen.currentPath)
 		if err == nil {
 			startX := (w / 2) + 2
 			startY := 2
 			if b != nil {
-				termbox_util.DrawStringAtPoint(fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), "/")), startX, startY, style.defaultFg, style.defaultBg)
-				termbox_util.DrawStringAtPoint(fmt.Sprintf("Buckets: %d", len(b.buckets)), startX, startY+1, style.defaultFg, style.defaultBg)
-				termbox_util.DrawStringAtPoint(fmt.Sprintf("Pairs: %d", len(b.pairs)), startX, startY+2, style.defaultFg, style.defaultBg)
+				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), "/")), startX, startY, style.defaultFg, style.defaultBg)
+				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Buckets: %d", len(b.buckets)), startX, startY+1, style.defaultFg, style.defaultBg)
+				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Pairs: %d", len(b.pairs)), startX, startY+2, style.defaultFg, style.defaultBg)
 			} else if p != nil {
-				termbox_util.DrawStringAtPoint(fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), "/")), startX, startY, style.defaultFg, style.defaultBg)
-				termbox_util.DrawStringAtPoint(fmt.Sprintf("Key: %s", p.key), startX, startY+1, style.defaultFg, style.defaultBg)
-				termbox_util.DrawStringAtPoint(fmt.Sprintf("Value: %s", p.val), startX, startY+2, style.defaultFg, style.defaultBg)
+				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), "/")), startX, startY, style.defaultFg, style.defaultBg)
+				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Key: %s", p.key), startX, startY+1, style.defaultFg, style.defaultBg)
+				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Value: %s", p.val), startX, startY+2, style.defaultFg, style.defaultBg)
 			}
 		}
 	}
@@ -527,7 +527,7 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 		bktString = bktString + "- " + bkt.name + " "
 		bktString = fmt.Sprintf("%s%s", bktString, strings.Repeat(" ", (w-len(bktString))))
 
-		termbox_util.DrawStringAtPoint(bktString, 0, (y + usedLines), bucketFg, bucketBg)
+		termboxUtil.DrawStringAtPoint(bktString, 0, (y + usedLines), bucketFg, bucketBg)
 		usedLines++
 
 		for i := range bkt.buckets {
@@ -539,7 +539,7 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 	} else {
 		bktString = bktString + "+ " + bkt.name
 		bktString = fmt.Sprintf("%s%s", bktString, strings.Repeat(" ", (w-len(bktString))))
-		termbox_util.DrawStringAtPoint(bktString, 0, (y + usedLines), bucketFg, bucketBg)
+		termboxUtil.DrawStringAtPoint(bktString, 0, (y + usedLines), bucketFg, bucketBg)
 		usedLines++
 	}
 	return usedLines
@@ -562,7 +562,7 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 	if w-len(pairString) > 0 {
 		pairString = fmt.Sprintf("%s%s", pairString, strings.Repeat(" ", (w-len(pairString))))
 	}
-	termbox_util.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
+	termboxUtil.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
 	return 1
 }
 
@@ -572,14 +572,14 @@ func (screen *BrowserScreen) startDeleteItem() bool {
 		w, h := termbox.Size()
 		inpW, inpH := (w / 2), 6
 		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
-		mod := termbox_util.CreateConfirmModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		mod := termboxUtil.CreateConfirmModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
 		if b != nil {
-			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Delete Bucket '%s'?", b.name), inpW-1, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Delete Bucket '%s'?", b.name), inpW-1, termboxUtil.AlignCenter))
 		} else if p != nil {
-			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Delete Pair '%s'?", p.key), inpW-1, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Delete Pair '%s'?", p.key), inpW-1, termboxUtil.AlignCenter))
 		}
 		mod.Show()
-		mod.SetText(termbox_util.AlignText("This cannot be undone!", inpW-1, termbox_util.ALIGN_CENTER))
+		mod.SetText(termboxUtil.AlignText("This cannot be undone!", inpW-1, termboxUtil.AlignCenter))
 		screen.confirmModal = mod
 		screen.mode = modeDelete
 		return true
@@ -593,9 +593,9 @@ func (screen *BrowserScreen) startEditItem() bool {
 		w, h := termbox.Size()
 		inpW, inpH := (w / 2), 6
 		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
-		mod := termbox_util.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
 		if p != nil {
-			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Input new value for '%s'", p.key), inpW, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Input new value for '%s'", p.key), inpW, termboxUtil.AlignCenter))
 			mod.SetValue(p.val)
 		}
 		mod.Show()
@@ -612,12 +612,12 @@ func (screen *BrowserScreen) startRenameItem() bool {
 		w, h := termbox.Size()
 		inpW, inpH := (w / 2), 6
 		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
-		mod := termbox_util.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
 		if b != nil {
-			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Rename Bucket '%s' to:", b.name), inpW, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Rename Bucket '%s' to:", b.name), inpW, termboxUtil.AlignCenter))
 			mod.SetValue(b.name)
 		} else if p != nil {
-			mod.SetTitle(termbox_util.AlignText(fmt.Sprintf("Rename Key '%s' to:", p.key), inpW, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Rename Key '%s' to:", p.key), inpW, termboxUtil.AlignCenter))
 			mod.SetValue(p.key)
 		}
 		mod.Show()
@@ -635,12 +635,12 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 		inpW, inpH = (w / 2), 7
 	}
 	inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
-	mod := termbox_util.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+	mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
 	screen.inputModal = mod
 	if len(screen.currentPath) <= 0 {
 		// in the root directory
 		if tp == typeBucket {
-			mod.SetTitle(termbox_util.AlignText("Create Root Bucket", inpW, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termboxUtil.AlignText("Create Root Bucket", inpW, termboxUtil.AlignCenter))
 			screen.mode = modeInsertBucket | modeModToParent
 			mod.Show()
 			return true
@@ -665,12 +665,12 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 			titleText = titlePrfx + "..." + insPath[truncW+3:]
 		}
 		if tp == typeBucket {
-			mod.SetTitle(termbox_util.AlignText(titleText, inpW, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termboxUtil.AlignText(titleText, inpW, termboxUtil.AlignCenter))
 			screen.mode = modeInsertBucket | modeModToParent
 			mod.Show()
 			return true
 		} else if tp == typePair {
-			mod.SetTitle(termbox_util.AlignText(titleText, inpW, termbox_util.ALIGN_CENTER))
+			mod.SetTitle(termboxUtil.AlignText(titleText, inpW, termboxUtil.AlignCenter))
 			mod.Show()
 			screen.mode = modeInsertPair | modeModToParent
 			return true
@@ -686,7 +686,7 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 		inpW, inpH = (w / 2), 7
 	}
 	inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
-	mod := termbox_util.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+	mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
 	screen.inputModal = mod
 	var insPath string
 	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
@@ -707,12 +707,12 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 		titleText = titlePrfx + "..." + insPath[truncW+3:]
 	}
 	if tp == typeBucket {
-		mod.SetTitle(termbox_util.AlignText(titleText, inpW, termbox_util.ALIGN_CENTER))
+		mod.SetTitle(termboxUtil.AlignText(titleText, inpW, termboxUtil.AlignCenter))
 		screen.mode = modeInsertBucket
 		mod.Show()
 		return true
 	} else if tp == typePair {
-		mod.SetTitle(termbox_util.AlignText(titleText, inpW, termbox_util.ALIGN_CENTER))
+		mod.SetTitle(termboxUtil.AlignText(titleText, inpW, termboxUtil.AlignCenter))
 		mod.Show()
 		screen.mode = modeInsertPair
 		return true
