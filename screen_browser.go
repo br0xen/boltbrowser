@@ -484,19 +484,27 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 		// Screen is wide enough, split it
 		termboxUtil.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
 		termboxUtil.FillWithChar('|', (w / 2), screen.viewPort.firstRow-1, (w / 2), h, style.defaultFg, style.defaultBg)
+		// Clear the right pane
+		termboxUtil.FillWithChar(' ', (w/2)+1, screen.viewPort.firstRow, w, h, style.defaultFg, style.defaultBg)
 
 		b, p, err := screen.db.getGenericFromPath(screen.currentPath)
 		if err == nil {
 			startX := (w / 2) + 2
 			startY := 2
 			if b != nil {
-				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), "/")), startX, startY, style.defaultFg, style.defaultBg)
-				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Buckets: %d", len(b.buckets)), startX, startY+1, style.defaultFg, style.defaultBg)
-				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Pairs: %d", len(b.pairs)), startX, startY+2, style.defaultFg, style.defaultBg)
+				pathString := fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), "/"))
+				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
+				bucketString := fmt.Sprintf("Buckets: %d", len(b.buckets))
+				startY += screen.drawMultilineText(bucketString, 9, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
+				pairsString := fmt.Sprintf("Pairs: %d", len(b.pairs))
+				startY += screen.drawMultilineText(pairsString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			} else if p != nil {
-				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), "/")), startX, startY, style.defaultFg, style.defaultBg)
-				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Key: %s", p.key), startX, startY+1, style.defaultFg, style.defaultBg)
-				termboxUtil.DrawStringAtPoint(fmt.Sprintf("Value: %s", p.val), startX, startY+2, style.defaultFg, style.defaultBg)
+				pathString := fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), "/"))
+				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
+				keyString := fmt.Sprintf("Key: %s", p.key)
+				startY += screen.drawMultilineText(keyString, 5, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
+				valString := fmt.Sprintf("Value: %s", p.val)
+				startY += screen.drawMultilineText(valString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			}
 		}
 	}
@@ -522,11 +530,22 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 		bucketBg = style.cursorBg
 	}
 
-	bktString := strings.Repeat(" ", len(bkt.GetPath())*2) //screen.db.getDepthFromPath(bkt.GetPath())*2)
+	prefixSpaces := strings.Repeat(" ", len(bkt.GetPath())*2)
+	bktString := prefixSpaces
+	prefixSpaces = prefixSpaces + "  "
 	if bkt.expanded {
-		bktString = bktString + "- " + bkt.name + " "
-		bktString = fmt.Sprintf("%s%s", bktString, strings.Repeat(" ", (w-len(bktString))))
-
+		bktString = bktString + "- " + bkt.name
+		if len(bktString) > w {
+			// Long bucket name, wrap it
+			for len(bktString) > w {
+				termboxUtil.DrawStringAtPoint(bktString[:(w-1)], 0, (y + usedLines), bucketFg, bucketBg)
+				bktString = prefixSpaces + bktString[(w-1):]
+				usedLines++
+			}
+		}
+		if (w - len(bktString)) > 0 {
+			bktString = fmt.Sprintf("%s%s", bktString, strings.Repeat(" ", (w-len(bktString))))
+		}
 		termboxUtil.DrawStringAtPoint(bktString, 0, (y + usedLines), bucketFg, bucketBg)
 		usedLines++
 
@@ -538,7 +557,17 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 		}
 	} else {
 		bktString = bktString + "+ " + bkt.name
-		bktString = fmt.Sprintf("%s%s", bktString, strings.Repeat(" ", (w-len(bktString))))
+		if len(bktString) > w {
+			// Long bucket name, wrap it
+			for len(bktString) > w {
+				termboxUtil.DrawStringAtPoint(bktString[:(w-1)], 0, (y + usedLines), bucketFg, bucketBg)
+				bktString = prefixSpaces + bktString[(w-1):]
+				usedLines++
+			}
+		}
+		if (w - len(bktString)) > 0 {
+			bktString = fmt.Sprintf("%s%s", bktString, strings.Repeat(" ", (w-len(bktString))))
+		}
 		termboxUtil.DrawStringAtPoint(bktString, 0, (y + usedLines), bucketFg, bucketBg)
 		usedLines++
 	}
@@ -550,6 +579,7 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 	if w > 80 {
 		w = w / 2
 	}
+	usedLines := 0
 	bucketFg := style.defaultFg
 	bucketBg := style.defaultBg
 	if comparePaths(screen.currentPath, bp.GetPath()) {
@@ -557,13 +587,46 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 		bucketBg = style.cursorBg
 	}
 
-	pairString := strings.Repeat(" ", len(bp.GetPath())*2) //screen.db.getDepthFromPath(bp.GetPath())*2)
+	prefixSpaces := strings.Repeat(" ", len(bp.GetPath())*2)
+	pairString := prefixSpaces
 	pairString = fmt.Sprintf("%s%s: %s", pairString, bp.key, bp.val)
-	if w-len(pairString) > 0 {
-		pairString = fmt.Sprintf("%s%s", pairString, strings.Repeat(" ", (w-len(pairString))))
+	prefixSpaces = prefixSpaces + "  "
+	if len(pairString) > w {
+		// Long pair string, wrap it
+		// We're going to try to wrap it at the :, if we can
+		if len(bp.GetPath())*2+len(bp.key)+1 > w {
+			// We can't... So just wrap it
+			for len(pairString) > w {
+				termboxUtil.DrawStringAtPoint(pairString[:(w-1)], 0, (y + usedLines), bucketFg, bucketBg)
+				pairString = strings.Repeat(" ", len(bp.GetPath())*2) + pairString[(w-1):]
+				usedLines++
+			}
+			termboxUtil.DrawStringAtPoint(pairString, 0, (y + usedLines), bucketFg, bucketBg)
+			usedLines++
+		} else {
+			// That's convenient, wrap at the :
+			pairString := strings.Repeat(" ", len(bp.GetPath())*2)
+			pairString = fmt.Sprintf("%s%s:", pairString, bp.key, bp.val)
+			termboxUtil.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
+			usedLines++
+			pairString = bp.val
+			for len(pairString) > w {
+				// Gotta chunk it up
+				termboxUtil.DrawStringAtPoint(pairString[:(w-1)], 0, (y + usedLines), bucketFg, bucketBg)
+				pairString = strings.Repeat(" ", len(bp.GetPath())*2) + pairString[(w-1):]
+				usedLines++
+			}
+			termboxUtil.DrawStringAtPoint(pairString, 0, (y + usedLines), bucketFg, bucketBg)
+			usedLines++
+		}
+	} else {
+		if w-len(pairString) > 0 {
+			pairString = fmt.Sprintf("%s%s", pairString, strings.Repeat(" ", (w-len(pairString))))
+		}
+		termboxUtil.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
+		usedLines = 1
 	}
-	termboxUtil.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
-	return 1
+	return usedLines
 }
 
 func (screen *BrowserScreen) startDeleteItem() bool {
@@ -687,6 +750,7 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 	}
 	inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
 	mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+	//mod.SetInputWrap(true)
 	screen.inputModal = mod
 	var insPath string
 	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
@@ -718,6 +782,27 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 		return true
 	}
 	return false
+}
+
+// Print text on multiple lines, if needed
+// msg - What to print
+// mlPadding - number of spaces to pad lines after the first
+// startX - Starting x
+// startY - Starting y
+// maxWidth - Maximum width
+// fg, bg - Colors
+// Returns the number of lines used
+func (screen *BrowserScreen) drawMultilineText(msg string, mlPadding, startX, startY, maxWidth int, fg, bg termbox.Attribute) int {
+	var numLines int
+	spacePadding := strings.Repeat(" ", mlPadding)
+	for len(msg) > maxWidth {
+		termboxUtil.DrawStringAtPoint(msg[:maxWidth-1], startX, (startY + numLines), fg, bg)
+		msg = spacePadding + msg[maxWidth-1:]
+		numLines++
+	}
+	termboxUtil.DrawStringAtPoint(msg, startX, (startY + numLines), fg, bg)
+	numLines++
+	return numLines
 }
 
 func (screen *BrowserScreen) setMessage(msg string) {
