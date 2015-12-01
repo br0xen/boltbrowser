@@ -533,21 +533,10 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 	prefixSpaces := strings.Repeat(" ", len(bkt.GetPath())*2)
 	bktString := prefixSpaces
 	prefixSpaces = prefixSpaces + "  "
+
 	if bkt.expanded {
 		bktString = bktString + "- " + bkt.name
-		if len(bktString) > w {
-			// Long bucket name, wrap it
-			for len(bktString) > w {
-				termboxUtil.DrawStringAtPoint(bktString[:(w-1)], 0, (y + usedLines), bucketFg, bucketBg)
-				bktString = prefixSpaces + bktString[(w-1):]
-				usedLines++
-			}
-		}
-		if (w - len(bktString)) > 0 {
-			bktString = fmt.Sprintf("%s%s", bktString, strings.Repeat(" ", (w-len(bktString))))
-		}
-		termboxUtil.DrawStringAtPoint(bktString, 0, (y + usedLines), bucketFg, bucketBg)
-		usedLines++
+		usedLines = screen.drawMultilineText(bktString, (len(bkt.GetPath())*2 + 2), 0, y, (w - 1), bucketFg, bucketBg)
 
 		for i := range bkt.buckets {
 			usedLines += screen.drawBucket(&bkt.buckets[i], style, y+usedLines)
@@ -557,19 +546,7 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 		}
 	} else {
 		bktString = bktString + "+ " + bkt.name
-		if len(bktString) > w {
-			// Long bucket name, wrap it
-			for len(bktString) > w {
-				termboxUtil.DrawStringAtPoint(bktString[:(w-1)], 0, (y + usedLines), bucketFg, bucketBg)
-				bktString = prefixSpaces + bktString[(w-1):]
-				usedLines++
-			}
-		}
-		if (w - len(bktString)) > 0 {
-			bktString = fmt.Sprintf("%s%s", bktString, strings.Repeat(" ", (w-len(bktString))))
-		}
-		termboxUtil.DrawStringAtPoint(bktString, 0, (y + usedLines), bucketFg, bucketBg)
-		usedLines++
+		usedLines = screen.drawMultilineText(bktString, (len(bkt.GetPath())*2 + 2), 0, y, (w - 1), bucketFg, bucketBg)
 	}
 	return usedLines
 }
@@ -596,28 +573,15 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 		// We're going to try to wrap it at the :, if we can
 		if len(bp.GetPath())*2+len(bp.key)+1 > w {
 			// We can't... So just wrap it
-			for len(pairString) > w {
-				termboxUtil.DrawStringAtPoint(pairString[:(w-1)], 0, (y + usedLines), bucketFg, bucketBg)
-				pairString = strings.Repeat(" ", len(bp.GetPath())*2) + pairString[(w-1):]
-				usedLines++
-			}
-			termboxUtil.DrawStringAtPoint(pairString, 0, (y + usedLines), bucketFg, bucketBg)
-			usedLines++
+			usedLines = screen.drawMultilineText(pairString, (len(bp.GetPath()) * 2), 0, y, (w - 1), style.defaultFg, style.defaultBg)
 		} else {
 			// That's convenient, wrap at the :
 			pairString := strings.Repeat(" ", len(bp.GetPath())*2)
-			pairString = fmt.Sprintf("%s%s:", pairString, bp.key, bp.val)
+			pairString = fmt.Sprintf("%s%s:", pairString, bp.key)
 			termboxUtil.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
 			usedLines++
-			pairString = bp.val
-			for len(pairString) > w {
-				// Gotta chunk it up
-				termboxUtil.DrawStringAtPoint(pairString[:(w-1)], 0, (y + usedLines), bucketFg, bucketBg)
-				pairString = strings.Repeat(" ", len(bp.GetPath())*2) + pairString[(w-1):]
-				usedLines++
-			}
-			termboxUtil.DrawStringAtPoint(pairString, 0, (y + usedLines), bucketFg, bucketBg)
-			usedLines++
+			pairString = strings.Repeat(" ", len(bp.GetPath())*2+2) + bp.val
+			usedLines += screen.drawMultilineText(pairString, (len(bp.GetPath())*2)+2, 0, y+1, (w - 1), bucketFg, bucketBg)
 		}
 	} else {
 		if w-len(pairString) > 0 {
