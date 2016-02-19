@@ -190,7 +190,7 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 		screen.mode = modeBrowse
 		screen.inputModal.Clear()
 	} else {
-		screen.inputModal.HandleKeyPress(event)
+		screen.inputModal.HandleEvent(event)
 		if screen.inputModal.IsDone() {
 			b, p, _ := screen.db.getGenericFromPath(screen.currentPath)
 			if b != nil {
@@ -235,7 +235,7 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 }
 
 func (screen *BrowserScreen) handleDeleteKeyEvent(event termbox.Event) int {
-	screen.confirmModal.HandleKeyPress(event)
+	screen.confirmModal.HandleEvent(event)
 	if screen.confirmModal.IsDone() {
 		if screen.confirmModal.IsAccepted() {
 			holdNextPath := screen.db.getNextVisiblePath(screen.currentPath)
@@ -279,7 +279,7 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 		screen.mode = modeBrowse
 		screen.inputModal.Clear()
 	} else {
-		screen.inputModal.HandleKeyPress(event)
+		screen.inputModal.HandleEvent(event)
 		if screen.inputModal.IsDone() {
 			newVal := screen.inputModal.GetValue()
 			screen.inputModal.Clear()
