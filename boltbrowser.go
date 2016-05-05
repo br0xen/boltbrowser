@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/boltdb/bolt"
 	"github.com/nsf/termbox-go"
