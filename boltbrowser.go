@@ -25,12 +25,6 @@ func mainLoop(memBolt *BoltDB, style Style) {
 	for {
 		event := termbox.PollEvent()
 		if event.Type == termbox.EventKey {
-			if event.Key == termbox.KeyCtrlZ {
-				process, _ := os.FindProcess(os.Getpid())
-				termbox.Close()
-				process.Signal(syscall.SIGSTOP)
-				termbox.Init()
-			}
 			newScreenIndex := displayScreen.handleKeyEvent(event)
 			if newScreenIndex < len(screens) {
 				displayScreen = screens[newScreenIndex]
