@@ -111,7 +111,7 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		{"b,B", "create bucket/at parent"},
 		{"e", "edit value of pair"},
 		{"r", "rename pair/bucket"},
-		{"d", "delete item"},
+		{"D", "delete item"},
 
 		{"?", "this screen"},
 		{"q", "quit program"},
