@@ -1,0 +1,14 @@
+package: github.com/br0xen/boltbrowser
+import:
+- package: github.com/boltdb/bolt
+  version: acc803f0ced151102ed51bf824f8709ebd6602bc
+- package: github.com/br0xen/termbox-util
+  version: c3e595e205f44a41e8f959d9c70fbbb1faf18f67
+- package: github.com/mattn/go-runewidth
+  version: d6bea18f789704b5f83375793155289da36a3c7f
+- package: github.com/nsf/termbox-go
+  version: c45773466a30b680355d6494cc8826113c93cd0f
+- package: golang.org/x/sys
+  version: b518c298ac9dc94b6ac0757394f50d10c5dfa25a
+  subpackages:
+  - unix

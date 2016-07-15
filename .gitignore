@@ -28,3 +28,6 @@ boltbrowser
 
 # Test Database
 test.db
+
+# Vendor'd dependencies
+vendor/
