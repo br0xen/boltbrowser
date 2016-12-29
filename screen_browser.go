@@ -534,8 +534,12 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 	bktString := prefixSpaces
 	prefixSpaces = prefixSpaces + "  "
 
+	padAmt := (len(bkt.GetPath())*2 + 2)
 	if bkt.expanded {
 		bktString = bktString + "- " + bkt.name
+		if len(bktString)+padAmt > w {
+			bktString = bktString[:w-padAmt-3] + "..."
+		}
 		usedLines = screen.drawMultilineText(bktString, (len(bkt.GetPath())*2 + 2), 0, y, (w - 1), bucketFg, bucketBg)
 
 		for i := range bkt.buckets {
@@ -546,6 +550,9 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 		}
 	} else {
 		bktString = bktString + "+ " + bkt.name
+		if len(bktString)+padAmt > w {
+			bktString = bktString[:w-padAmt-3] + "..."
+		}
 		usedLines = screen.drawMultilineText(bktString, (len(bkt.GetPath())*2 + 2), 0, y, (w - 1), bucketFg, bucketBg)
 	}
 	return usedLines
