@@ -567,8 +567,14 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 	prefixSpaces := strings.Repeat(" ", len(bp.GetPath())*2)
 	pairString := prefixSpaces
 	pairString = fmt.Sprintf("%s%s: %s", pairString, bp.key, bp.val)
+	if len(pairString) > w {
+	}
 	prefixSpaces = prefixSpaces + "  "
 	if len(pairString) > w {
+		// The long pair strings are causing a problem, for now, truncate
+		pairString = pairString[:w-3] + "..."
+	}
+	/* TODO: Re-enable this when I figure out the display issue
 		// Long pair string, wrap it
 		// We're going to try to wrap it at the :, if we can
 		if len(bp.GetPath())*2+len(bp.key)+1 > w {
@@ -584,12 +590,13 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 			usedLines += screen.drawMultilineText(pairString, (len(bp.GetPath())*2)+2, 0, y+1, (w - 1), bucketFg, bucketBg)
 		}
 	} else {
-		if w-len(pairString) > 0 {
-			pairString = fmt.Sprintf("%s%s", pairString, strings.Repeat(" ", (w-len(pairString))))
-		}
-		termboxUtil.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
-		usedLines = 1
+	*/
+	if w-len(pairString) > 0 {
+		pairString = fmt.Sprintf("%s%s", pairString, strings.Repeat(" ", (w-len(pairString))))
 	}
+	termboxUtil.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
+	usedLines = 1
+	// }
 	return usedLines
 }
 
