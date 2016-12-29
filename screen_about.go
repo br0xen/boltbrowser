@@ -112,6 +112,7 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		{"e", "edit value of pair"},
 		{"r", "rename pair/bucket"},
 		{"D", "delete item"},
+		{"x,X", "export as string/json to file"},
 
 		{"?", "this screen"},
 		{"q", "quit program"},

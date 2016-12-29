@@ -49,9 +49,12 @@ const (
 	modeInsertBucket  = 65  // 0000 0100 0001
 	modeInsertPair    = 68  // 0000 0100 0100
 	modeInsertPairKey = 69  // 0000 0100 0101
-	modeInserPairVal  = 70  // 0000 0100 0110
+	modeInsertPairVal = 70  // 0000 0100 0110
 	modeDelete        = 256 // 0001 0000 0000
 	modeModToParent   = 8   // 0000 0000 1000
+	modeExport        = 512 // 0010 0000 0000
+	modeExportValue   = 513 // 0010 0000 0001
+	modeExportJSON    = 514 // 0010 0000 0010
 )
 
 /*
@@ -76,6 +79,8 @@ func (screen *BrowserScreen) handleKeyEvent(event termbox.Event) int {
 		return screen.handleInsertKeyEvent(event)
 	} else if screen.mode == modeDelete {
 		return screen.handleDeleteKeyEvent(event)
+	} else if screen.mode&modeExport == modeExport {
+		return screen.handleExportKeyEvent(event)
 	}
 	return BrowserScreenIndex
 }
@@ -181,6 +186,12 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 
 	} else if event.Ch == 'D' {
 		screen.startDeleteItem()
+	} else if event.Ch == 'x' {
+		// Export Value
+		screen.startExportValue()
+	} else if event.Ch == 'X' {
+		// Export Key/Value (or Bucket) as JSON
+		screen.startExportJSON()
 	}
 	return BrowserScreenIndex
 }
@@ -335,6 +346,41 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 					screen.startEditItem()
 				}
 			}
+		}
+	}
+	return BrowserScreenIndex
+}
+
+func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
+	if event.Key == termbox.KeyEsc {
+		screen.mode = modeBrowse
+		screen.inputModal.Clear()
+	} else {
+		screen.inputModal.HandleEvent(event)
+		if screen.inputModal.IsDone() {
+			b, p, _ := screen.db.getGenericFromPath(screen.currentPath)
+			fileName := screen.inputModal.GetValue()
+			if screen.mode&modeExportValue == modeExportValue {
+				// Exporting the value
+				if p != nil {
+					if err := exportValue(screen.currentPath, fileName); err != nil {
+						//screen.setMessage("Error Exporting to file " + fileName + ".")
+						screen.setMessage(err.Error())
+					} else {
+						screen.setMessage("Value exported to file: " + fileName)
+					}
+				}
+			} else if screen.mode&modeExportJSON == modeExportJSON {
+				if b != nil || p != nil {
+					if exportJSON(screen.currentPath, fileName) != nil {
+						screen.setMessage("Error Exporting to file " + fileName + ".")
+					} else {
+						screen.setMessage("Value exported to file: " + fileName)
+					}
+				}
+			}
+			screen.mode = modeBrowse
+			screen.inputModal.Clear()
 		}
 	}
 	return BrowserScreenIndex
@@ -757,6 +803,46 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 		mod.SetTitle(termboxUtil.AlignText(titleText, inpW, termboxUtil.AlignCenter))
 		mod.Show()
 		screen.mode = modeInsertPair
+		return true
+	}
+	return false
+}
+
+func (screen *BrowserScreen) startExportValue() bool {
+	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
+	if e == nil && p != nil {
+		w, h := termbox.Size()
+		inpW, inpH := (w / 2), 6
+		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
+		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Export value of '%s' to:", p.key), inpW, termboxUtil.AlignCenter))
+		mod.SetValue("")
+		mod.Show()
+		screen.inputModal = mod
+		screen.mode = modeExportValue
+		return true
+	}
+	screen.setMessage("Couldn't do string export on " + screen.currentPath[len(screen.currentPath)-1] + "(did you mean 'X'?)")
+	return false
+}
+
+func (screen *BrowserScreen) startExportJSON() bool {
+	b, p, e := screen.db.getGenericFromPath(screen.currentPath)
+	if e == nil {
+		w, h := termbox.Size()
+		inpW, inpH := (w / 2), 6
+		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
+		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		if b != nil {
+			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Export JSON of '%s' to:", b.name), inpW, termboxUtil.AlignCenter))
+			mod.SetValue("")
+		} else if p != nil {
+			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Export JSON of '%s' to:", p.key), inpW, termboxUtil.AlignCenter))
+			mod.SetValue("")
+		}
+		mod.Show()
+		screen.inputModal = mod
+		screen.mode = modeExportJSON
 		return true
 	}
 	return false

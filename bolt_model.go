@@ -559,17 +559,89 @@ func insertPair(path []string, k string, v string) error {
 	return err
 }
 
+func exportValue(path []string, fName string) error {
+	return db.View(func(tx *bolt.Tx) error {
+		// len(b.path)-1 is the key whose value we want to export
+		// the rest are buckets leading to that key
+		b := tx.Bucket([]byte(path[0]))
+		if b != nil {
+			if len(path) > 1 {
+				for i := range path[1 : len(path)-1] {
+					b = b.Bucket([]byte(path[i+1]))
+					if b == nil {
+						return errors.New("exportValue: Invalid Path: " + strings.Join(path, "/"))
+					}
+				}
+			}
+			bk := []byte(path[len(path)-1])
+			v := b.Get(bk)
+			return writeToFile(fName, string(v)+"\n", os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+		} else {
+			return errors.New("exportValue: Invalid Bucket")
+		}
+		return nil
+	})
+}
+
+func exportJSON(path []string, fName string) error {
+	return db.View(func(tx *bolt.Tx) error {
+		// len(b.path)-1 is the key whose value we want to export
+		// the rest are buckets leading to that key
+		b := tx.Bucket([]byte(path[0]))
+		if b != nil {
+			if len(path) > 1 {
+				for i := range path[1 : len(path)-1] {
+					b = b.Bucket([]byte(path[i+1]))
+					if b == nil {
+						return errors.New("exportValue: Invalid Path: " + strings.Join(path, "/"))
+					}
+				}
+			}
+			bk := []byte(path[len(path)-1])
+			if v := b.Get(bk); v != nil {
+				return writeToFile(fName, "{\""+string(bk)+"\":\""+string(v)+"\"}", os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+			}
+			if b.Bucket(bk) != nil {
+				return writeToFile(fName, genJSONString(b.Bucket(bk)), os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+			}
+			return writeToFile(fName, genJSONString(b), os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+		} else {
+			return errors.New("exportValue: Invalid Bucket")
+		}
+		return nil
+	})
+}
+
+func genJSONString(b *bolt.Bucket) string {
+	ret := "{"
+	b.ForEach(func(k, v []byte) error {
+		ret = fmt.Sprintf("%s\"%s\":", ret, string(k))
+		if v == nil {
+			ret = fmt.Sprintf("%s%s,", ret, genJSONString(b.Bucket(k)))
+		} else {
+			ret = fmt.Sprintf("%s\"%s\",", ret, string(v))
+		}
+		return nil
+	})
+	ret = fmt.Sprintf("%s}", ret[:len(ret)-1])
+	return ret
+}
+
 var f *os.File
 
 func logToFile(s string) error {
+	return writeToFile("bolt-log", s+"\n", os.O_RDWR|os.O_APPEND)
+}
+
+func writeToFile(fn, s string, mode int) error {
 	var err error
 	if f == nil {
-		f, err = os.OpenFile("bolt-log", os.O_RDWR|os.O_APPEND, 0660)
+		f, err = os.OpenFile(fn, mode, 0660)
 	}
 	if err != nil {
 		return err
 	}
-	if _, err = f.WriteString(s + "\n"); err != nil {
+	if _, err = f.WriteString(s); err != nil {
 		return err
 	}
 	if err = f.Sync(); err != nil {
