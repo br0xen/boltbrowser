@@ -156,14 +156,14 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 		}
 
 	} else if event.Ch == 'l' || event.Key == termbox.KeyArrowRight {
-		b, p, _ := screen.db.getGenericFromPath(screen.currentPath)
+		b, p, err := screen.db.getGenericFromPath(screen.currentPath)
 		// Select the current item
 		if b != nil {
 			screen.db.toggleOpenBucket(screen.currentPath)
 		} else if p != nil {
 			screen.startEditItem()
 		} else {
-			screen.setMessage("Not sure what to do here...")
+			screen.setMessage(err.Error())
 		}
 
 	} else if event.Ch == 'h' || event.Key == termbox.KeyArrowLeft {
@@ -389,47 +389,51 @@ func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
 func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
 	// Jump up 'distance' lines
 	visPaths, err := screen.db.buildVisiblePathSlice()
-	if err == nil {
-		findPath := strings.Join(screen.currentPath, "/")
-		startJump := false
-		for i := range visPaths {
-			if visPaths[len(visPaths)-1-i] == findPath {
-				startJump = true
-			}
-			if startJump {
-				distance--
-				if distance == 0 {
-					screen.currentPath = strings.Split(visPaths[len(visPaths)-1-i], "/")
-					break
-				}
+	if err != nil {
+		screen.setMessage(err.Error())
+		return false
+	}
+	findPath := strings.Join(screen.currentPath, "→")
+	startJump := false
+	for i := range visPaths {
+		if visPaths[len(visPaths)-1-i] == findPath {
+			startJump = true
+		}
+		if startJump {
+			distance--
+			if distance == 0 {
+				screen.currentPath = strings.Split(visPaths[len(visPaths)-1-i], "→")
+				break
 			}
 		}
-		if strings.Join(screen.currentPath, "/") == findPath {
-			screen.currentPath = screen.db.getNextVisiblePath(nil)
-		}
+	}
+	if strings.Join(screen.currentPath, "→") == findPath {
+		screen.currentPath = screen.db.getNextVisiblePath(nil)
 	}
 	return true
 }
 func (screen *BrowserScreen) jumpCursorDown(distance int) bool {
 	visPaths, err := screen.db.buildVisiblePathSlice()
-	if err == nil {
-		findPath := strings.Join(screen.currentPath, "/")
-		startJump := false
-		for i := range visPaths {
-			if visPaths[i] == findPath {
-				startJump = true
-			}
-			if startJump {
-				distance--
-				if distance == 0 {
-					screen.currentPath = strings.Split(visPaths[i], "/")
-					break
-				}
+	if err != nil {
+		screen.setMessage(err.Error())
+		return false
+	}
+	findPath := strings.Join(screen.currentPath, "→")
+	startJump := false
+	for i := range visPaths {
+		if visPaths[i] == findPath {
+			startJump = true
+		}
+		if startJump {
+			distance--
+			if distance == 0 {
+				screen.currentPath = strings.Split(visPaths[i], "→")
+				break
 			}
 		}
-		if strings.Join(screen.currentPath, "/") == findPath {
-			screen.currentPath = screen.db.getPrevVisiblePath(nil)
-		}
+	}
+	if strings.Join(screen.currentPath, "→") == findPath {
+		screen.currentPath = screen.db.getPrevVisiblePath(nil)
 	}
 	return true
 }
@@ -506,10 +510,12 @@ func (screen *BrowserScreen) drawLeftPane(style Style) {
 	visSlice, err := screen.db.buildVisiblePathSlice()
 	if err == nil {
 		for i := range visSlice {
-			if strings.Join(screen.currentPath, "/") == visSlice[i] {
+			if strings.Join(screen.currentPath, "→") == visSlice[i] {
 				curPathSpot = i
 			}
 		}
+	} else {
+		screen.setMessage(err.Error())
 	}
 
 	treeOffset := 0
@@ -538,14 +544,14 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 			startX := (w / 2) + 2
 			startY := 2
 			if b != nil {
-				pathString := fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), "/"))
+				pathString := fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), "→"))
 				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				bucketString := fmt.Sprintf("Buckets: %d", len(b.buckets))
 				startY += screen.drawMultilineText(bucketString, 9, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				pairsString := fmt.Sprintf("Pairs: %d", len(b.pairs))
 				startY += screen.drawMultilineText(pairsString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			} else if p != nil {
-				pathString := fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), "/"))
+				pathString := fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), "→"))
 				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				keyString := fmt.Sprintf("Key: %s", p.key)
 				startY += screen.drawMultilineText(keyString, 5, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
@@ -695,24 +701,25 @@ func (screen *BrowserScreen) startEditItem() bool {
 
 func (screen *BrowserScreen) startRenameItem() bool {
 	b, p, e := screen.db.getGenericFromPath(screen.currentPath)
-	if e == nil {
-		w, h := termbox.Size()
-		inpW, inpH := (w / 2), 6
-		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
-		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
-		if b != nil {
-			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Rename Bucket '%s' to:", b.name), inpW, termboxUtil.AlignCenter))
-			mod.SetValue(b.name)
-		} else if p != nil {
-			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Rename Key '%s' to:", p.key), inpW, termboxUtil.AlignCenter))
-			mod.SetValue(p.key)
-		}
-		mod.Show()
-		screen.inputModal = mod
-		screen.mode = modeChangeKey
-		return true
+	if e != nil {
+		screen.setMessage("Error renaming item: " + e.Error())
+		return false
 	}
-	return false
+	w, h := termbox.Size()
+	inpW, inpH := (w / 2), 6
+	inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
+	mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+	if b != nil {
+		mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Rename Bucket '%s' to:", b.name), inpW, termboxUtil.AlignCenter))
+		mod.SetValue(b.name)
+	} else if p != nil {
+		mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Rename Key '%s' to:", p.key), inpW, termboxUtil.AlignCenter))
+		mod.SetValue(p.key)
+	}
+	mod.Show()
+	screen.inputModal = mod
+	screen.mode = modeChangeKey
+	return true
 }
 
 func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
@@ -736,9 +743,9 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 		var insPath string
 		_, p, e := screen.db.getGenericFromPath(screen.currentPath[:len(screen.currentPath)-1])
 		if e == nil && p != nil {
-			insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-2], "/") + "/"
+			insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-2], "→") + "→"
 		} else {
-			insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-1], "/") + "/"
+			insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-1], "→") + "→"
 		}
 		titlePrfx := ""
 		if tp == typeBucket {
@@ -779,9 +786,9 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 	var insPath string
 	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
 	if e == nil && p != nil {
-		insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-1], "/") + "/"
+		insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-1], "→") + "→"
 	} else {
-		insPath = strings.Join(screen.currentPath, "/") + "/"
+		insPath = strings.Join(screen.currentPath, "→") + "→"
 	}
 	titlePrfx := ""
 	if tp == typeBucket {
@@ -896,5 +903,5 @@ func (screen *BrowserScreen) refreshDatabase() {
 }
 
 func comparePaths(p1, p2 []string) bool {
-	return strings.Join(p1, "/") == strings.Join(p2, "/")
+	return strings.Join(p1, "→") == strings.Join(p2, "→")
 }

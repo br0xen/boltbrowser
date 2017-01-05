@@ -39,17 +39,23 @@ type BoltPair struct {
 
 func (bd *BoltDB) getGenericFromPath(path []string) (*BoltBucket, *BoltPair, error) {
 	// Check if 'path' leads to a pair
-	p, err := bd.getPairFromPath(path)
-	if err == nil {
+	p, pErr := bd.getPairFromPath(path)
+	if pErr == nil {
 		return nil, p, nil
 	}
 	// Nope, check if it leads to a bucket
-	b, err := bd.getBucketFromPath(path)
-	if err == nil {
+	b, bErr := bd.getBucketFromPath(path)
+	if bErr == nil {
 		return b, nil, nil
 	}
 	// Nope, error
-	return nil, nil, errors.New("Invalid Path")
+	if pErr != nil && bErr != nil {
+		return nil, nil, errors.New(pErr.Error() + " / " + bErr.Error())
+	}
+	if pErr != nil {
+		return nil, nil, pErr
+	}
+	return nil, nil, bErr
 }
 
 func (bd *BoltDB) getBucketFromPath(path []string) (*BoltBucket, error) {
@@ -126,7 +132,7 @@ func (bd *BoltDB) getVisibleItemCount(path []string) (int, error) {
 func (bd *BoltDB) buildVisiblePathSlice() ([]string, error) {
 	var retSlice []string
 	var retErr error
-	// The root path, recurse for root buckets
+	// The root path, recurse for each root buckets
 	for i := range bd.buckets {
 		bktS, bktErr := bd.buckets[i].buildVisiblePathSlice([]string{})
 		if bktErr == nil {
@@ -134,6 +140,7 @@ func (bd *BoltDB) buildVisiblePathSlice() ([]string, error) {
 		} else {
 			// Something went wrong, set the error flag
 			bd.buckets[i].errorFlag = true
+			retErr = bktErr
 		}
 	}
 	return retSlice, retErr
@@ -143,33 +150,34 @@ func (bd *BoltDB) getPrevVisiblePath(path []string) []string {
 	visPaths, err := bd.buildVisiblePathSlice()
 	if path == nil {
 		if len(visPaths) > 0 {
-			return strings.Split(visPaths[len(visPaths)-1], "/")
+			return strings.Split(visPaths[len(visPaths)-1], "→")
 		}
 		return nil
 	}
 	if err == nil {
-		findPath := strings.Join(path, "/")
+		findPath := strings.Join(path, "→")
 		for i := range visPaths {
 			if visPaths[i] == findPath && i > 0 {
-				return strings.Split(visPaths[i-1], "/")
+				return strings.Split(visPaths[i-1], "→")
 			}
 		}
 	}
 	return nil
 }
+
 func (bd *BoltDB) getNextVisiblePath(path []string) []string {
 	visPaths, err := bd.buildVisiblePathSlice()
 	if path == nil {
 		if len(visPaths) > 0 {
-			return strings.Split(visPaths[0], "/")
+			return strings.Split(visPaths[0], "→")
 		}
 		return nil
 	}
 	if err == nil {
-		findPath := strings.Join(path, "/")
+		findPath := strings.Join(path, "→")
 		for i := range visPaths {
 			if visPaths[i] == findPath && i < len(visPaths)-1 {
-				return strings.Split(visPaths[i+1], "/")
+				return strings.Split(visPaths[i+1], "→")
 			}
 		}
 	}
@@ -209,7 +217,7 @@ func (bd *BoltDB) getBucket(k string) (*BoltBucket, error) {
 			return &bd.buckets[i], nil
 		}
 	}
-	return nil, errors.New("Bucket Not Found")
+	return nil, errors.New("Bucket Not Found: " + k)
 }
 
 func (bd *BoltDB) syncOpenBuckets(shadow *BoltDB) {
@@ -256,7 +264,7 @@ func (b *BoltBucket) buildVisiblePathSlice(prefix []string) ([]string, error) {
 	var retErr error
 	// Add this bucket to the slice
 	prefix = append(prefix, b.name)
-	retSlice = append(retSlice, strings.Join(prefix, "/"))
+	retSlice = append(retSlice, strings.Join(prefix, "→"))
 	if b.expanded {
 		// Add subbuckets
 		for i := range b.buckets {
@@ -266,11 +274,12 @@ func (b *BoltBucket) buildVisiblePathSlice(prefix []string) ([]string, error) {
 			} else {
 				// Something went wrong, set the error flag
 				b.buckets[i].errorFlag = true
+				retErr = bktErr
 			}
 		}
 		// Add Pairs
 		for i := range b.pairs {
-			retSlice = append(retSlice, strings.Join(prefix, "/")+"/"+b.pairs[i].key)
+			retSlice = append(retSlice, strings.Join(prefix, "→")+"→"+b.pairs[i].key)
 		}
 	}
 	return retSlice, retErr
@@ -294,7 +303,7 @@ func (b *BoltBucket) getBucket(k string) (*BoltBucket, error) {
 			return &b.buckets[i], nil
 		}
 	}
-	return nil, errors.New("Bucket Not Found")
+	return nil, errors.New("Bucket Not Found: " + k)
 }
 
 func (b *BoltBucket) getPair(k string) (*BoltPair, error) {
@@ -569,7 +578,7 @@ func exportValue(path []string, fName string) error {
 				for i := range path[1 : len(path)-1] {
 					b = b.Bucket([]byte(path[i+1]))
 					if b == nil {
-						return errors.New("exportValue: Invalid Path: " + strings.Join(path, "/"))
+						return errors.New("exportValue: Invalid Path: " + strings.Join(path, "→"))
 					}
 				}
 			}
@@ -593,7 +602,7 @@ func exportJSON(path []string, fName string) error {
 				for i := range path[1 : len(path)-1] {
 					b = b.Bucket([]byte(path[i+1]))
 					if b == nil {
-						return errors.New("exportValue: Invalid Path: " + strings.Join(path, "/"))
+						return errors.New("exportValue: Invalid Path: " + strings.Join(path, "→"))
 					}
 				}
 			}
