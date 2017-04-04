@@ -476,8 +476,9 @@ func (screen *BrowserScreen) drawScreen(style Style) {
 
 func (screen *BrowserScreen) drawHeader(style Style) {
 	width, _ := termbox.Size()
-	spaces := strings.Repeat(" ", (width / 2))
-	termboxUtil.DrawStringAtPoint(fmt.Sprintf("%s%s%s", spaces, ProgramName, spaces), 0, 0, style.titleFg, style.titleBg)
+	headerString := ProgramName + ": " + currentFilename
+	spaces := strings.Repeat(" ", ((width-len(headerString))/2)+1)
+	termboxUtil.DrawStringAtPoint(fmt.Sprintf("%s%s%s", spaces, headerString, spaces), 0, 0, style.titleFg, style.titleBg)
 }
 func (screen *BrowserScreen) drawFooter(style Style) {
 	if screen.messageTimeout > 0 && time.Since(screen.messageTime) > screen.messageTimeout {

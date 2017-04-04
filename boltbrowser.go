@@ -17,6 +17,8 @@ var databaseFiles []string
 var db *bolt.DB
 var memBolt *BoltDB
 
+var currentFilename string
+
 func main() {
 	var err error
 
@@ -36,6 +38,7 @@ func main() {
 
 	databaseFiles := os.Args[1:]
 	for _, databaseFile := range databaseFiles {
+		currentFilename = databaseFile
 		db, err = bolt.Open(databaseFile, 0600, nil)
 		if err != nil {
 			fmt.Printf("Error reading file: %q\n", err.Error())
