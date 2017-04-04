@@ -11,7 +11,7 @@ import (
 /*
 ProgramName is the name of the program
 */
-const ProgramName = "boltbrowser"
+var ProgramName = "boltbrowser"
 
 var databaseFile string
 var db *bolt.DB
