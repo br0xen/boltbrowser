@@ -32,7 +32,6 @@ func main() {
 		panic(err)
 	}
 	defer termbox.Close()
-
 	style := defaultStyle()
 	termbox.SetOutputMode(termbox.Output256)
 
@@ -41,8 +40,14 @@ func main() {
 		currentFilename = databaseFile
 		db, err = bolt.Open(databaseFile, 0600, nil)
 		if err != nil {
-			mainLoop(nil, style)
-			continue
+			if len(databaseFiles) > 1 {
+				mainLoop(nil, style)
+				continue
+			} else {
+				termbox.Close()
+				fmt.Printf("Error reading file: %q\n", err.Error())
+				os.Exit(111)
+			}
 		}
 
 		// First things first, load the database into memory
