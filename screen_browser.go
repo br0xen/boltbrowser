@@ -390,21 +390,30 @@ func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
 	// Jump up 'distance' lines
 	visPaths, err := screen.db.buildVisiblePathSlice()
 	if err == nil {
-		findPath := strings.Join(screen.currentPath, "/")
-		startJump := false
-		for i := range visPaths {
-			if visPaths[len(visPaths)-1-i] == findPath {
-				startJump = true
+		findPath := screen.currentPath
+		for idx, pth := range visPaths {
+			startJump := true
+			for i := range pth {
+				if len(screen.currentPath) > i && pth[i] != screen.currentPath[i] {
+					startJump = false
+				}
 			}
 			if startJump {
 				distance--
 				if distance == 0 {
-					screen.currentPath = strings.Split(visPaths[len(visPaths)-1-i], "/")
+					screen.currentPath = visPaths[len(visPaths)-1-idx]
 					break
 				}
 			}
 		}
-		if strings.Join(screen.currentPath, "/") == findPath {
+		isCurPath := true
+		for i := range screen.currentPath {
+			if screen.currentPath[i] != findPath[i] {
+				isCurPath = false
+				break
+			}
+		}
+		if isCurPath {
 			screen.currentPath = screen.db.getNextVisiblePath(nil)
 		}
 	}
@@ -413,22 +422,32 @@ func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
 func (screen *BrowserScreen) jumpCursorDown(distance int) bool {
 	visPaths, err := screen.db.buildVisiblePathSlice()
 	if err == nil {
-		findPath := strings.Join(screen.currentPath, "/")
-		startJump := false
-		for i := range visPaths {
-			if visPaths[i] == findPath {
-				startJump = true
+		findPath := screen.currentPath
+		for idx, pth := range visPaths {
+			startJump := true
+
+			for i := range pth {
+				if len(screen.currentPath) > i && pth[i] != screen.currentPath[i] {
+					startJump = false
+				}
 			}
 			if startJump {
 				distance--
 				if distance == 0 {
-					screen.currentPath = strings.Split(visPaths[i], "/")
+					screen.currentPath = visPaths[idx]
 					break
 				}
 			}
 		}
-		if strings.Join(screen.currentPath, "/") == findPath {
-			screen.currentPath = screen.db.getPrevVisiblePath(nil)
+		isCurPath := true
+		for i := range screen.currentPath {
+			if screen.currentPath[i] != findPath[i] {
+				isCurPath = false
+				break
+			}
+		}
+		if isCurPath {
+			screen.currentPath = screen.db.getNextVisiblePath(nil)
 		}
 	}
 	return true
@@ -510,11 +529,18 @@ func (screen *BrowserScreen) drawLeftPane(style Style) {
 	// So we know how much of the tree _wants_ to be visible
 	// we only have screen.viewPort.numberOfRows of space though
 	curPathSpot := 0
-	visSlice, err := screen.db.buildVisiblePathSlice()
+	visPaths, err := screen.db.buildVisiblePathSlice()
 	if err == nil {
-		for i := range visSlice {
-			if strings.Join(screen.currentPath, "/") == visSlice[i] {
-				curPathSpot = i
+		for idx, pth := range visPaths {
+			isCurPath := true
+			for i := range pth {
+				if len(screen.currentPath) > i && pth[i] != screen.currentPath[i] {
+					isCurPath = false
+					break
+				}
+			}
+			if isCurPath {
+				curPathSpot = idx
 			}
 		}
 	}
@@ -541,24 +567,28 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 		termboxUtil.FillWithChar(' ', (w/2)+1, screen.viewPort.firstRow, w, h, style.defaultFg, style.defaultBg)
 
 		b, p, err := screen.db.getGenericFromPath(screen.currentPath)
+		startX := (w / 2) + 2
+		startY := 2
 		if err == nil {
-			startX := (w / 2) + 2
-			startY := 2
 			if b != nil {
-				pathString := fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), "/"))
+				pathString := fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), " → "))
 				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				bucketString := fmt.Sprintf("Buckets: %d", len(b.buckets))
 				startY += screen.drawMultilineText(bucketString, 9, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				pairsString := fmt.Sprintf("Pairs: %d", len(b.pairs))
 				startY += screen.drawMultilineText(pairsString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			} else if p != nil {
-				pathString := fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), "/"))
+				pathString := fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), " → "))
 				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				keyString := fmt.Sprintf("Key: %s", p.key)
 				startY += screen.drawMultilineText(keyString, 5, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				valString := fmt.Sprintf("Value: %s", p.val)
 				startY += screen.drawMultilineText(valString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			}
+		} else {
+			pathString := fmt.Sprintf("Path: %s", strings.Join(screen.currentPath, " → "))
+			startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
+			startY += screen.drawMultilineText(err.Error(), 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 		}
 	}
 }
