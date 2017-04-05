@@ -33,6 +33,9 @@ type BrowserScreen struct {
 	confirmModal   *termboxUtil.ConfirmModal
 	messageTimeout time.Duration
 	messageTime    time.Time
+
+	rightPaneHeight int
+	rightPaneCursor int
 }
 
 /*
@@ -121,6 +124,12 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 
 	} else if event.Ch == 'k' || event.Key == termbox.KeyArrowUp {
 		screen.moveCursorUp()
+
+	} else if event.Ch == 'J' { //|| event.Key == termbox.KeyArrowDown {
+		screen.moveRightPaneDown()
+
+	} else if event.Ch == 'K' { //|| event.Key == termbox.KeyArrowUp {
+		screen.moveRightPaneUp()
 
 	} else if event.Ch == 'p' {
 		// p creates a new pair at the current level
@@ -469,6 +478,12 @@ func (screen *BrowserScreen) moveCursorDown() bool {
 	}
 	return false
 }
+func (screen *BrowserScreen) moveRightPaneUp() bool {
+	return false
+}
+func (screen *BrowserScreen) moveRightPaneDown() bool {
+	return false
+}
 
 func (screen *BrowserScreen) performLayout() {}
 
@@ -773,9 +788,9 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 		var insPath string
 		_, p, e := screen.db.getGenericFromPath(screen.currentPath[:len(screen.currentPath)-1])
 		if e == nil && p != nil {
-			insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-2], "/") + "/"
+			insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-2], " → ") + " → "
 		} else {
-			insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-1], "/") + "/"
+			insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-1], " → ") + " → "
 		}
 		titlePrfx := ""
 		if tp == typeBucket {
@@ -816,9 +831,9 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 	var insPath string
 	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
 	if e == nil && p != nil {
-		insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-1], "/") + "/"
+		insPath = strings.Join(screen.currentPath[:len(screen.currentPath)-1], " → ") + " → "
 	} else {
-		insPath = strings.Join(screen.currentPath, "/") + "/"
+		insPath = strings.Join(screen.currentPath, " → ") + " → "
 	}
 	titlePrfx := ""
 	if tp == typeBucket {
@@ -887,19 +902,23 @@ func (screen *BrowserScreen) startExportJSON() bool {
 
 // Print text on multiple lines, if needed
 // msg - What to print
-// mlPadding - number of spaces to pad lines after the first
+// indentPadding - number of spaces to pad lines after the first
 // startX - Starting x
 // startY - Starting y
 // maxWidth - Maximum width
 // fg, bg - Colors
 // Returns the number of lines used
-func (screen *BrowserScreen) drawMultilineText(msg string, mlPadding, startX, startY, maxWidth int, fg, bg termbox.Attribute) int {
+func (screen *BrowserScreen) drawMultilineText(msg string, indentPadding, startX, startY, maxWidth int, fg, bg termbox.Attribute) int {
 	var numLines int
-	spacePadding := strings.Repeat(" ", mlPadding)
-	for len(msg) > maxWidth {
-		termboxUtil.DrawStringAtPoint(msg[:maxWidth-1], startX, (startY + numLines), fg, bg)
-		msg = spacePadding + msg[maxWidth-1:]
-		numLines++
+	spacePadding := strings.Repeat(" ", indentPadding)
+	// First we need to split 'msg' into the lines it should have (split on '\n')
+	msgs := strings.Split(msg, "\n")
+	for _, msg = range msgs {
+		for len(msg) > maxWidth {
+			termboxUtil.DrawStringAtPoint(msg[:maxWidth-1], startX, (startY + numLines), fg, bg)
+			msg = spacePadding + msg[maxWidth-1:]
+			numLines++
+		}
 	}
 	termboxUtil.DrawStringAtPoint(msg, startX, (startY + numLines), fg, bg)
 	numLines++
@@ -933,5 +952,5 @@ func (screen *BrowserScreen) refreshDatabase() {
 }
 
 func comparePaths(p1, p2 []string) bool {
-	return strings.Join(p1, "/") == strings.Join(p2, "/")
+	return strings.Join(p1, " → ") == strings.Join(p2, " → ")
 }
