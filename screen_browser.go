@@ -454,6 +454,12 @@ func (screen *BrowserScreen) moveCursorDown() bool {
 func (screen *BrowserScreen) performLayout() {}
 
 func (screen *BrowserScreen) drawScreen(style Style) {
+	if screen.db == nil {
+		screen.drawHeader(style)
+		screen.setMessage("Invalid DB. Press 'q' to quit, '?' for help")
+		screen.drawFooter(style)
+		return
+	}
 	if len(screen.db.buckets) == 0 && screen.mode&modeInsertBucket != modeInsertBucket {
 		// Force a bucket insert
 		screen.startInsertItemAtParent(typeBucket)
