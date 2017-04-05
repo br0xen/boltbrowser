@@ -41,8 +41,8 @@ func main() {
 		currentFilename = databaseFile
 		db, err = bolt.Open(databaseFile, 0600, nil)
 		if err != nil {
-			fmt.Printf("Error reading file: %q\n", err.Error())
-			os.Exit(1)
+			mainLoop(nil, style)
+			continue
 		}
 
 		// First things first, load the database into memory
