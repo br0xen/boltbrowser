@@ -52,6 +52,7 @@ func main() {
 
 		// First things first, load the database into memory
 		memBolt.refreshDatabase()
+		// Kick off the UI loop
 		mainLoop(memBolt, style)
 		defer db.Close()
 	}

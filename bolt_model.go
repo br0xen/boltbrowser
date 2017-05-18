@@ -224,6 +224,13 @@ func (bd *BoltDB) getBucket(k string) (*BoltBucket, error) {
 	return nil, errors.New("Bucket Not Found")
 }
 
+func (bd *BoltDB) openAllBuckets() {
+	for i := range bd.buckets {
+		bd.buckets[i].openAllBuckets()
+		bd.buckets[i].expanded = true
+	}
+}
+
 func (bd *BoltDB) syncOpenBuckets(shadow *BoltDB) {
 	// First test this bucket
 	for i := range bd.buckets {
@@ -270,23 +277,19 @@ The passed prefix is the path leading to the current bucket
 func (b *BoltBucket) buildVisiblePathSlice(prefix []string) ([][]string, error) {
 	var retSlice [][]string
 	var retErr error
-	// Add this bucket to the prefix slice
-	prefix = append(prefix, b.name)
-	retSlice = append(retSlice, prefix)
+	retSlice = append(retSlice, append(prefix, b.name))
 	if b.expanded {
 		// Add subbuckets
 		for i := range b.buckets {
-			bktS, bktErr := b.buckets[i].buildVisiblePathSlice(prefix)
-			if bktErr == nil {
-				retSlice = append(retSlice, bktS...)
-			} else {
-				// Something went wrong, set the error flag
-				b.buckets[i].errorFlag = true
+			bktS, bktErr := b.buckets[i].buildVisiblePathSlice(append(prefix, b.name))
+			if bktErr != nil {
+				return retSlice, bktErr
 			}
+			retSlice = append(retSlice, bktS...)
 		}
-		// Add Pairs
+		// Add pairs
 		for i := range b.pairs {
-			retSlice = append(retSlice, append(prefix, b.pairs[i].key))
+			retSlice = append(retSlice, append(append(prefix, b.name), b.pairs[i].key))
 		}
 	}
 	return retSlice, retErr
@@ -301,6 +304,13 @@ func (b *BoltBucket) syncOpenBuckets(shadow *BoltBucket) {
 				b.buckets[i].syncOpenBuckets(&shadow.buckets[j])
 			}
 		}
+	}
+}
+
+func (b *BoltBucket) openAllBuckets() {
+	for i := range b.buckets {
+		b.buckets[i].openAllBuckets()
+		b.buckets[i].expanded = true
 	}
 }
 
