@@ -125,10 +125,10 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 	} else if event.Ch == 'k' || event.Key == termbox.KeyArrowUp {
 		screen.moveCursorUp()
 
-	} else if event.Ch == 'J' { //|| event.Key == termbox.KeyArrowDown {
+	} else if event.Ch == 'J' {
 		screen.moveRightPaneDown()
 
-	} else if event.Ch == 'K' { //|| event.Key == termbox.KeyArrowUp {
+	} else if event.Ch == 'K' {
 		screen.moveRightPaneUp()
 
 	} else if event.Ch == 'p' {
