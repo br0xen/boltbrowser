@@ -141,7 +141,7 @@ func (i *InputField) HandleEvent(event termbox.Event) bool {
 		}
 	} else if event.Key == termbox.KeyCtrlU {
 		// Ctrl+U Clears the Input (before the cursor)
-		i.value = i.value[i.cursor:]
+		i.value = i.value[i.cursor+len(i.value):]
 	} else {
 		// Get the rune to add to our value. Space and Tab are special cases where
 		// we can't use the event's rune directly
