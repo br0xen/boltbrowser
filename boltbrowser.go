@@ -33,7 +33,7 @@ func main() {
 
 	if flag.NArg() == 0 {
 		flag.Usage()
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	err = termbox.Init()
