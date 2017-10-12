@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -19,12 +20,20 @@ var memBolt *BoltDB
 
 var currentFilename string
 
+func init() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stdout, "Usage: %s <filename(s)>\n", ProgramName)
+	}
+}
+
 func main() {
 	var err error
 
-	if len(os.Args) < 2 {
-		fmt.Printf("Usage: %s <filename(s)>\n", ProgramName)
-		os.Exit(1)
+	flag.Parse()
+
+	if flag.NArg() == 0 {
+		flag.Usage()
+		os.Exit(2)
 	}
 
 	err = termbox.Init()
@@ -35,7 +44,7 @@ func main() {
 	style := defaultStyle()
 	termbox.SetOutputMode(termbox.Output256)
 
-	databaseFiles := os.Args[1:]
+	databaseFiles := flag.Args()
 	for _, databaseFile := range databaseFiles {
 		currentFilename = databaseFile
 		db, err = bolt.Open(databaseFile, 0600, nil)
