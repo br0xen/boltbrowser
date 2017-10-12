@@ -28,3 +28,4 @@ boltbrowser
 
 # Test Database
 test.db
+*.db
