@@ -36,3 +36,9 @@ Just provide a BoltDB filename to be opened as the first argument on the command
 ```sh
 boltbrowser <filename>
 ```
+
+To see all options that are available, run:
+
+```
+boltbrowser --help
+```
