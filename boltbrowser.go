@@ -23,9 +23,15 @@ var currentFilename string
 
 const DefaultDBOpenTimeout = time.Second
 
+var args struct {
+	DBOpenTimeout time.Duration
+}
+
 func init() {
+	flag.DurationVar(&args.DBOpenTimeout, "timeout", DefaultDBOpenTimeout, "DB file open timeout")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stdout, "Usage: %s <filename(s)>\n", ProgramName)
+		fmt.Fprintf(os.Stdout, "Usage: %s [OPTIONS] <filename(s)>\nOptions:\n", ProgramName)
+		flag.PrintDefaults()
 	}
 }
 
@@ -50,7 +56,7 @@ func main() {
 	databaseFiles := flag.Args()
 	for _, databaseFile := range databaseFiles {
 		currentFilename = databaseFile
-		db, err = bolt.Open(databaseFile, 0600, &bolt.Options{Timeout: DefaultDBOpenTimeout})
+		db, err = bolt.Open(databaseFile, 0600, &bolt.Options{Timeout: args.DBOpenTimeout})
 		if err == bolt.ErrTimeout {
 			termbox.Close()
 			fmt.Printf("File %s is locked. Make sure it's not used by another app and try again\n", databaseFile)
