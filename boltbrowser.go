@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/boltdb/bolt"
 	"github.com/nsf/termbox-go"
@@ -19,6 +20,8 @@ var db *bolt.DB
 var memBolt *BoltDB
 
 var currentFilename string
+
+const DefaultDBOpenTimeout = time.Second
 
 func init() {
 	flag.Usage = func() {
@@ -47,8 +50,12 @@ func main() {
 	databaseFiles := flag.Args()
 	for _, databaseFile := range databaseFiles {
 		currentFilename = databaseFile
-		db, err = bolt.Open(databaseFile, 0600, nil)
-		if err != nil {
+		db, err = bolt.Open(databaseFile, 0600, &bolt.Options{Timeout: DefaultDBOpenTimeout})
+		if err == bolt.ErrTimeout {
+			termbox.Close()
+			fmt.Printf("File %s is locked. Make sure it's not used by another app and try again\n", databaseFile)
+			os.Exit(1)
+		} else if err != nil {
 			if len(databaseFiles) > 1 {
 				mainLoop(nil, style)
 				continue
