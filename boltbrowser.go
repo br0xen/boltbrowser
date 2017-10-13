@@ -30,7 +30,7 @@ var args struct {
 func init() {
 	flag.DurationVar(&args.DBOpenTimeout, "timeout", DefaultDBOpenTimeout, "DB file open timeout")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stdout, "Usage: %s [OPTIONS] <filename(s)>\nOptions:\n", ProgramName)
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS] <filename(s)>\nOptions:\n", ProgramName)
 		flag.PrintDefaults()
 	}
 }
