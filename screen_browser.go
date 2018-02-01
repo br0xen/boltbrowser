@@ -595,9 +595,9 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 			} else if p != nil {
 				pathString := fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), " → "))
 				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-				keyString := fmt.Sprintf("Key: %s", p.key)
+				keyString := fmt.Sprintf("Key: %s", stringify([]byte(p.key)))
 				startY += screen.drawMultilineText(keyString, 5, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-				valString := fmt.Sprintf("Value: %s", p.val)
+				valString := fmt.Sprintf("Value: %s", stringify([]byte(p.val)))
 				startY += screen.drawMultilineText(valString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			}
 		} else {
@@ -671,7 +671,7 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 
 	prefixSpaces := strings.Repeat(" ", len(bp.GetPath())*2)
 	pairString := prefixSpaces
-	pairString = fmt.Sprintf("%s%s: %s", pairString, bp.key, bp.val)
+	pairString = fmt.Sprintf("%s%s: %s", pairString, stringify([]byte(bp.key)), stringify([]byte(bp.val)))
 	if len(pairString) > w {
 	}
 	prefixSpaces = prefixSpaces + "  "
