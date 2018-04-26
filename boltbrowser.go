@@ -10,9 +10,6 @@ import (
 	"github.com/nsf/termbox-go"
 )
 
-/*
-ProgramName is the name of the program
-*/
 var ProgramName = "boltbrowser"
 
 var databaseFiles []string
