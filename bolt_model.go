@@ -364,6 +364,9 @@ func addBucketFromBoltBucket(path []string, bb *BoltBucket) error {
 }
 
 func deleteKey(path []string) error {
+	if AppArgs.ReadOnly {
+		return errors.New("DB is in Read-Only Mode")
+	}
 	err := db.Update(func(tx *bolt.Tx) error {
 		// len(b.path)-1 is the key we need to delete,
 		// the rest are buckets leading to that key
@@ -469,6 +472,9 @@ func renameBucket(path []string, name string) error {
 }
 
 func updatePairKey(path []string, k string) error {
+	if AppArgs.ReadOnly {
+		return errors.New("DB is in Read-Only Mode")
+	}
 	err := db.Update(func(tx *bolt.Tx) error {
 		// len(b.path)-1 is the key for the pair we're updating,
 		// the rest are buckets leading to that key
@@ -498,6 +504,9 @@ func updatePairKey(path []string, k string) error {
 }
 
 func updatePairValue(path []string, v string) error {
+	if AppArgs.ReadOnly {
+		return errors.New("DB is in Read-Only Mode")
+	}
 	err := db.Update(func(tx *bolt.Tx) error {
 		// len(b.GetPath())-1 is the key for the pair we're updating,
 		// the rest are buckets leading to that key
@@ -521,6 +530,9 @@ func updatePairValue(path []string, v string) error {
 }
 
 func insertBucket(path []string, n string) error {
+	if AppArgs.ReadOnly {
+		return errors.New("DB is in Read-Only Mode")
+	}
 	// Inserts a new bucket named 'n' at 'path'
 	err := db.Update(func(tx *bolt.Tx) error {
 		if len(path) == 0 {
@@ -558,6 +570,9 @@ func insertBucket(path []string, n string) error {
 }
 
 func insertPair(path []string, k string, v string) error {
+	if AppArgs.ReadOnly {
+		return errors.New("DB is in Read-Only Mode")
+	}
 	// Insert a new pair k => v at path
 	err := db.Update(func(tx *bolt.Tx) error {
 		if len(path) == 0 {
