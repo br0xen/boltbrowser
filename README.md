@@ -42,3 +42,9 @@ To see all options that are available, run:
 ```
 boltbrowser --help
 ```
+
+Troubleshooting
+---------------
+
+If you're having trouble with garbled characters being displayed on your screen, you may try a different value for `TERM`.  
+People tend to have the best luck with `xterm-256color` or something like that. Play around with it and see if it fixes your problems.
