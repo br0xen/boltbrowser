@@ -1,6 +1,6 @@
 package boltbrowser
 
-type Cursor struct {
+type cursor struct {
 	x int
 	y int
 }

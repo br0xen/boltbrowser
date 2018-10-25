@@ -11,25 +11,25 @@ import (
 )
 
 /*
-ViewPort helps keep track of what's being displayed on the screen
+viewPort helps keep track of what's being displayed on the screen
 */
-type ViewPort struct {
+type viewPort struct {
 	bytesPerRow  int
 	numberOfRows int
 	firstRow     int
 }
 
 /*
-BrowserScreen holds all that's going on :D
+browserScreen holds all that's going on :D
 */
-type BrowserScreen struct {
-	db             *BoltDB
-	viewPort       ViewPort
+type browserScreen struct {
+	db             *boltDB
+	viewPort       viewPort
 	queuedCommand  string
 	currentPath    []string
 	currentType    int
 	message        string
-	mode           BrowserMode
+	mode           browserMode
 	inputModal     *termboxUtil.InputModal
 	confirmModal   *termboxUtil.ConfirmModal
 	messageTimeout time.Duration
@@ -40,9 +40,9 @@ type BrowserScreen struct {
 }
 
 /*
-BrowserMode is just for designating the mode that we're in
+browserMode is just for designating the mode that we're in
 */
-type BrowserMode int
+type browserMode int
 
 const (
 	modeBrowse        = 16  // 0000 0001 0000
@@ -62,16 +62,16 @@ const (
 )
 
 /*
-BoltType is just for tracking what type of db item we're looking at
+boltType is just for tracking what type of db item we're looking at
 */
-type BoltType int
+type boltType int
 
 const (
 	typeBucket = iota
 	typePair
 )
 
-func (screen *BrowserScreen) handleKeyEvent(event termbox.Event) int {
+func (screen *browserScreen) handleKeyEvent(event termbox.Event) int {
 	if screen.mode == 0 {
 		screen.mode = modeBrowse
 	}
@@ -86,17 +86,17 @@ func (screen *BrowserScreen) handleKeyEvent(event termbox.Event) int {
 	} else if screen.mode&modeExport == modeExport {
 		return screen.handleExportKeyEvent(event)
 	}
-	return BrowserScreenIndex
+	return browserScreenIndex
 }
 
-func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
+func (screen *browserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 	if event.Ch == '?' {
 		// About
-		return AboutScreenIndex
+		return aboutScreenIndex
 
 	} else if event.Ch == 'q' || event.Key == termbox.KeyEsc || event.Key == termbox.KeyCtrlC {
 		// Quit
-		return ExitScreenIndex
+		return exitScreenIndex
 
 	} else if event.Ch == 'g' {
 		// Jump to Beginning
@@ -203,10 +203,10 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 		// Export Key/Value (or Bucket) as JSON
 		screen.startExportJSON()
 	}
-	return BrowserScreenIndex
+	return browserScreenIndex
 }
 
-func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
+func (screen *browserScreen) handleInputKeyEvent(event termbox.Event) int {
 	if event.Key == termbox.KeyEsc {
 		screen.mode = modeBrowse
 		screen.inputModal.Clear()
@@ -252,10 +252,10 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 			screen.inputModal.Clear()
 		}
 	}
-	return BrowserScreenIndex
+	return browserScreenIndex
 }
 
-func (screen *BrowserScreen) handleDeleteKeyEvent(event termbox.Event) int {
+func (screen *browserScreen) handleDeleteKeyEvent(event termbox.Event) int {
 	screen.confirmModal.HandleEvent(event)
 	if screen.confirmModal.IsDone() {
 		if screen.confirmModal.IsAccepted() {
@@ -289,13 +289,13 @@ func (screen *BrowserScreen) handleDeleteKeyEvent(event termbox.Event) int {
 		screen.mode = modeBrowse
 		screen.confirmModal.Clear()
 	}
-	return BrowserScreenIndex
+	return browserScreenIndex
 }
 
-func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
+func (screen *browserScreen) handleInsertKeyEvent(event termbox.Event) int {
 	if event.Key == termbox.KeyEsc {
 		if len(screen.db.buckets) == 0 {
-			return ExitScreenIndex
+			return exitScreenIndex
 		}
 		screen.mode = modeBrowse
 		screen.inputModal.Clear()
@@ -358,10 +358,10 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 			}
 		}
 	}
-	return BrowserScreenIndex
+	return browserScreenIndex
 }
 
-func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
+func (screen *browserScreen) handleExportKeyEvent(event termbox.Event) int {
 	if event.Key == termbox.KeyEsc {
 		screen.mode = modeBrowse
 		screen.inputModal.Clear()
@@ -393,10 +393,10 @@ func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
 			screen.inputModal.Clear()
 		}
 	}
-	return BrowserScreenIndex
+	return browserScreenIndex
 }
 
-func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
+func (screen *browserScreen) jumpCursorUp(distance int) bool {
 	// Jump up 'distance' lines
 	visPaths, err := screen.db.buildVisiblePathSlice()
 	if err == nil {
@@ -429,7 +429,7 @@ func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
 	}
 	return true
 }
-func (screen *BrowserScreen) jumpCursorDown(distance int) bool {
+func (screen *browserScreen) jumpCursorDown(distance int) bool {
 	visPaths, err := screen.db.buildVisiblePathSlice()
 	if err == nil {
 		findPath := screen.currentPath
@@ -463,7 +463,7 @@ func (screen *BrowserScreen) jumpCursorDown(distance int) bool {
 	return true
 }
 
-func (screen *BrowserScreen) moveCursorUp() bool {
+func (screen *browserScreen) moveCursorUp() bool {
 	newPath := screen.db.getPrevVisiblePath(screen.currentPath)
 	if newPath != nil {
 		screen.currentPath = newPath
@@ -471,7 +471,7 @@ func (screen *BrowserScreen) moveCursorUp() bool {
 	}
 	return false
 }
-func (screen *BrowserScreen) moveCursorDown() bool {
+func (screen *browserScreen) moveCursorDown() bool {
 	newPath := screen.db.getNextVisiblePath(screen.currentPath)
 	if newPath != nil {
 		screen.currentPath = newPath
@@ -479,16 +479,16 @@ func (screen *BrowserScreen) moveCursorDown() bool {
 	}
 	return false
 }
-func (screen *BrowserScreen) moveRightPaneUp() bool {
+func (screen *browserScreen) moveRightPaneUp() bool {
 	return false
 }
-func (screen *BrowserScreen) moveRightPaneDown() bool {
+func (screen *browserScreen) moveRightPaneDown() bool {
 	return false
 }
 
-func (screen *BrowserScreen) performLayout() {}
+func (screen *browserScreen) performLayout() {}
 
-func (screen *BrowserScreen) drawScreen(style Style) {
+func (screen *browserScreen) drawScreen(style termStyle) {
 	if screen.db == nil {
 		screen.drawHeader(style)
 		screen.setMessage("Invalid DB. Press 'q' to quit, '?' for help")
@@ -515,20 +515,20 @@ func (screen *BrowserScreen) drawScreen(style Style) {
 	}
 }
 
-func (screen *BrowserScreen) drawHeader(style Style) {
+func (screen *browserScreen) drawHeader(style termStyle) {
 	width, _ := termbox.Size()
 	headerString := "boltbrowser: " + filepath.Base(screen.db.db.Path())
 	spaces := strings.Repeat(" ", ((width-len(headerString))/2)+1)
 	termboxUtil.DrawStringAtPoint(fmt.Sprintf("%s%s%s", spaces, headerString, spaces), 0, 0, style.titleFg, style.titleBg)
 }
-func (screen *BrowserScreen) drawFooter(style Style) {
+func (screen *browserScreen) drawFooter(style termStyle) {
 	if screen.messageTimeout > 0 && time.Since(screen.messageTime) > screen.messageTimeout {
 		screen.clearMessage()
 	}
 	_, height := termbox.Size()
 	termboxUtil.DrawStringAtPoint(screen.message, 0, height-1, style.defaultFg, style.defaultBg)
 }
-func (screen *BrowserScreen) drawLeftPane(style Style) {
+func (screen *browserScreen) drawLeftPane(style termStyle) {
 	w, h := termbox.Size()
 	if w > 80 {
 		w = w / 2
@@ -573,7 +573,7 @@ func (screen *BrowserScreen) drawLeftPane(style Style) {
 		y += bktH
 	}
 }
-func (screen *BrowserScreen) drawRightPane(style Style) {
+func (screen *browserScreen) drawRightPane(style termStyle) {
 	w, h := termbox.Size()
 	if w > 80 {
 		// Screen is wide enough, split it
@@ -616,7 +616,7 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
  * @y int - The Y position to start drawing
  * return - The number of lines used
  */
-func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int {
+func (screen *browserScreen) drawBucket(bkt *boltBucket, style termStyle, y int) int {
 	w, _ := termbox.Size()
 	if w > 80 {
 		w = w / 2
@@ -657,7 +657,7 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 	return usedLines
 }
 
-func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
+func (screen *browserScreen) drawPair(bp *boltPair, style termStyle, y int) int {
 	w, _ := termbox.Size()
 	if w > 80 {
 		w = w / 2
@@ -706,7 +706,7 @@ func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
 	return usedLines
 }
 
-func (screen *BrowserScreen) startDeleteItem() bool {
+func (screen *browserScreen) startDeleteItem() bool {
 	b, p, e := screen.db.getGenericFromPath(screen.currentPath)
 	if e == nil {
 		w, h := termbox.Size()
@@ -727,7 +727,7 @@ func (screen *BrowserScreen) startDeleteItem() bool {
 	return false
 }
 
-func (screen *BrowserScreen) startEditItem() bool {
+func (screen *browserScreen) startEditItem() bool {
 	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
 	if e == nil {
 		w, h := termbox.Size()
@@ -746,7 +746,7 @@ func (screen *BrowserScreen) startEditItem() bool {
 	return false
 }
 
-func (screen *BrowserScreen) startRenameItem() bool {
+func (screen *browserScreen) startRenameItem() bool {
 	b, p, e := screen.db.getGenericFromPath(screen.currentPath)
 	if e == nil {
 		w, h := termbox.Size()
@@ -768,7 +768,7 @@ func (screen *BrowserScreen) startRenameItem() bool {
 	return false
 }
 
-func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
+func (screen *browserScreen) startInsertItemAtParent(tp boltType) bool {
 	w, h := termbox.Size()
 	inpW, inpH := w-1, 7
 	if w > 80 {
@@ -819,7 +819,7 @@ func (screen *BrowserScreen) startInsertItemAtParent(tp BoltType) bool {
 	return false
 }
 
-func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
+func (screen *browserScreen) startInsertItem(tp boltType) bool {
 	w, h := termbox.Size()
 	inpW, inpH := w-1, 7
 	if w > 80 {
@@ -861,7 +861,7 @@ func (screen *BrowserScreen) startInsertItem(tp BoltType) bool {
 	return false
 }
 
-func (screen *BrowserScreen) startExportValue() bool {
+func (screen *browserScreen) startExportValue() bool {
 	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
 	if e == nil && p != nil {
 		w, h := termbox.Size()
@@ -879,7 +879,7 @@ func (screen *BrowserScreen) startExportValue() bool {
 	return false
 }
 
-func (screen *BrowserScreen) startExportJSON() bool {
+func (screen *browserScreen) startExportJSON() bool {
 	b, p, e := screen.db.getGenericFromPath(screen.currentPath)
 	if e == nil {
 		w, h := termbox.Size()
@@ -909,7 +909,7 @@ func (screen *BrowserScreen) startExportJSON() bool {
 // maxWidth - Maximum width
 // fg, bg - Colors
 // Returns the number of lines used
-func (screen *BrowserScreen) drawMultilineText(msg string, indentPadding, startX, startY, maxWidth int, fg, bg termbox.Attribute) int {
+func (screen *browserScreen) drawMultilineText(msg string, indentPadding, startX, startY, maxWidth int, fg, bg termbox.Attribute) int {
 	var numLines int
 	spacePadding := strings.Repeat(" ", indentPadding)
 	// First we need to split 'msg' into the lines it should have (split on '\n')
@@ -926,7 +926,7 @@ func (screen *BrowserScreen) drawMultilineText(msg string, indentPadding, startX
 	return numLines
 }
 
-func (screen *BrowserScreen) setMessage(msg string) {
+func (screen *browserScreen) setMessage(msg string) {
 	screen.message = msg
 	screen.messageTime = time.Now()
 	screen.messageTimeout = time.Second * 2
@@ -935,19 +935,19 @@ func (screen *BrowserScreen) setMessage(msg string) {
 /* setMessageWithTimeout lets you specify the timeout for the message
  * setting it to -1 means it won't timeout
  */
-func (screen *BrowserScreen) setMessageWithTimeout(msg string, timeout time.Duration) {
+func (screen *browserScreen) setMessageWithTimeout(msg string, timeout time.Duration) {
 	screen.message = msg
 	screen.messageTime = time.Now()
 	screen.messageTimeout = timeout
 }
 
-func (screen *BrowserScreen) clearMessage() {
+func (screen *browserScreen) clearMessage() {
 	screen.message = ""
 	screen.messageTimeout = -1
 }
 
-func (screen *BrowserScreen) refreshDatabase() {
-	shadowDB := new(BoltDB)
+func (screen *browserScreen) refreshDatabase() {
+	shadowDB := new(boltDB)
 	*shadowDB = *screen.db
 	screen.db.refreshDatabase()
 	screen.db.syncOpenBuckets(shadowDB)

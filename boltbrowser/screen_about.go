@@ -8,19 +8,19 @@ import (
 )
 
 /*
-Command is a struct for associating descriptions to keys
+command is a struct for associating descriptions to keys
 */
-type Command struct {
+type command struct {
 	key         string
 	description string
 }
 
 /*
-AboutScreen is just a basic 'int' type that we can extend to make this screen
+aboutScreen is just a basic 'int' type that we can extend to make this screen
 */
-type AboutScreen int
+type aboutScreen int
 
-func drawCommandsAtPoint(commands []Command, x int, y int, style Style) {
+func drawCommandsAtPoint(commands []command, x int, y int, style termStyle) {
 	xPos, yPos := x, y
 	for index, cmd := range commands {
 		termboxUtil.DrawStringAtPoint(fmt.Sprintf("%6s", cmd.key), xPos, yPos, style.defaultFg, style.defaultBg)
@@ -32,13 +32,13 @@ func drawCommandsAtPoint(commands []Command, x int, y int, style Style) {
 	}
 }
 
-func (screen *AboutScreen) handleKeyEvent(event termbox.Event) int {
-	return BrowserScreenIndex
+func (screen *aboutScreen) handleKeyEvent(event termbox.Event) int {
+	return browserScreenIndex
 }
 
-func (screen *AboutScreen) performLayout() {}
+func (screen *aboutScreen) performLayout() {}
 
-func (screen *AboutScreen) drawScreen(style Style) {
+func (screen *aboutScreen) drawScreen(style termStyle) {
 	defaultFg := style.defaultFg
 	defaultBg := style.defaultBg
 	width, height := termbox.Size()
@@ -94,7 +94,7 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		}
 	}
 
-	commands1 := [...]Command{
+	commands1 := [...]command{
 		{"h,←", "close parent"},
 		{"j,↓", "down"},
 		{"k,↑", "up"},
@@ -106,7 +106,7 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		{"ctrl+b", "jump up"},
 	}
 
-	commands2 := [...]Command{
+	commands2 := [...]command{
 		{"p,P", "create pair/at parent"},
 		{"b,B", "create bucket/at parent"},
 		{"e", "edit value of pair"},

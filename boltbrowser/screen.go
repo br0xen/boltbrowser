@@ -2,30 +2,30 @@ package boltbrowser
 
 import "github.com/nsf/termbox-go"
 
-// Screen is a basic structure for all of the applications screens
-type Screen interface {
+// screen is a basic structure for all of the applications screens
+type screen interface {
 	handleKeyEvent(event termbox.Event) int
 	performLayout()
-	drawScreen(style Style)
+	drawScreen(style termStyle)
 }
 
 const (
-	// BrowserScreenIndex is the index
-	BrowserScreenIndex = iota
-	// AboutScreenIndex The idx number for the 'About' Screen
-	AboutScreenIndex
-	// ExitScreenIndex The idx number for Exiting
-	ExitScreenIndex
+	// browserScreenIndex is the index
+	browserScreenIndex = iota
+	// aboutScreenIndex The idx number for the 'About' Screen
+	aboutScreenIndex
+	// exitScreenIndex The idx number for Exiting
+	exitScreenIndex
 )
 
-func defaultScreensForData(db *BoltDB) []Screen {
-	var viewPort ViewPort
+func defaultScreensForData(db *boltDB) []screen {
+	var vp viewPort
 
-	browserScreen := BrowserScreen{db: db, viewPort: viewPort}
-	aboutScreen := AboutScreen(0)
-	screens := [...]Screen{
-		&browserScreen,
-		&aboutScreen,
+	browserScr := browserScreen{db: db, viewPort: vp}
+	aboutScr := aboutScreen(0)
+	screens := [...]screen{
+		&browserScr,
+		&aboutScr,
 	}
 
 	return screens[:]
@@ -35,9 +35,9 @@ func drawBackground(bg termbox.Attribute) {
 	termbox.Clear(0, bg)
 }
 
-func layoutAndDrawScreen(screen Screen, style Style) {
-	screen.performLayout()
+func layoutAndDrawScreen(scr screen, style termStyle) {
+	scr.performLayout()
 	drawBackground(style.defaultBg)
-	screen.drawScreen(style)
+	scr.drawScreen(style)
 	termbox.Flush()
 }

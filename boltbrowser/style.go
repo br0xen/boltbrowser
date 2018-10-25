@@ -3,9 +3,9 @@ package boltbrowser
 import "github.com/nsf/termbox-go"
 
 /*
-Style Defines the colors for the terminal display, basically
+termStyle Defines the colors for the terminal display, basically
 */
-type Style struct {
+type termStyle struct {
 	defaultBg termbox.Attribute
 	defaultFg termbox.Attribute
 	titleFg   termbox.Attribute
@@ -14,8 +14,8 @@ type Style struct {
 	cursorBg  termbox.Attribute
 }
 
-func DefaultStyle() Style {
-	var style Style
+func defaultStyle() termStyle {
+	var style termStyle
 	style.defaultBg = termbox.ColorBlack
 	style.defaultFg = termbox.ColorWhite
 	style.titleFg = termbox.ColorBlack

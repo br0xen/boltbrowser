@@ -6,7 +6,7 @@ package boltbrowser
 
 import "github.com/nsf/termbox-go"
 
-func Run(db *bolt.DB, readOnly bool) {
+func Browse(db *bolt.DB, readOnly bool) {
 	err := termbox.Init()
 	if err != nil {
 		panic(err)

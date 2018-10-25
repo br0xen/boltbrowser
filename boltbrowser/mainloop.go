@@ -10,7 +10,8 @@ import (
 	"github.com/nsf/termbox-go"
 )
 
-func Run(db *bolt.DB, readOnly bool) {
+// Browse db in boltbrowser. Blocks until user quits.
+func Browse(db *bolt.DB, readOnly bool) {
 	err := termbox.Init()
 	if err != nil {
 		panic(err)
@@ -18,11 +19,11 @@ func Run(db *bolt.DB, readOnly bool) {
 	defer termbox.Close()
 	termbox.SetOutputMode(termbox.Output256)
 
-	memBolt := NewModel(db, readOnly)
-	style := DefaultStyle()
+	memBolt := newModel(db, readOnly)
+	style := defaultStyle()
 
 	screens := defaultScreensForData(memBolt)
-	displayScreen := screens[BrowserScreenIndex]
+	displayScreen := screens[browserScreenIndex]
 	layoutAndDrawScreen(displayScreen, style)
 	for {
 		event := termbox.PollEvent()

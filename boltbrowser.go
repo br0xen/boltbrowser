@@ -100,7 +100,7 @@ func main() {
 		if AppArgs.ReadOnly {
 			db.Close()
 		}
-		boltbrowser.Run(db, AppArgs.ReadOnly)
+		boltbrowser.Browse(db, AppArgs.ReadOnly)
 		db.Close()
 	}
 }
