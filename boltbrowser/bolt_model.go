@@ -1,4 +1,4 @@
-package main
+package boltbrowser
 
 import (
 	"errors"
@@ -13,7 +13,9 @@ import (
 BoltDB A Database, basically a collection of buckets
 */
 type BoltDB struct {
-	buckets []BoltBucket
+	db       *bolt.DB
+	readOnly bool
+	buckets  []BoltBucket
 }
 
 /*
@@ -58,7 +60,7 @@ func (bd *BoltDB) getBucketFromPath(path []string) (*BoltBucket, error) {
 		var b *BoltBucket
 		var err error
 		// Find the root bucket
-		b, err = memBolt.getBucket(path[0])
+		b, err = bd.getBucket(path[0])
 		if err != nil {
 			return nil, err
 		}
@@ -242,9 +244,16 @@ func (bd *BoltDB) syncOpenBuckets(shadow *BoltDB) {
 	}
 }
 
-func (bd *BoltDB) refreshDatabase() *BoltDB {
-	// Reload the database into memBolt
-	memBolt = new(BoltDB)
+func (bd *BoltDB) refreshDatabase() {
+	newDB := NewModel(bd.db, bd.readOnly)
+	*bd = *newDB
+}
+
+func NewModel(db *bolt.DB, readOnly bool) *BoltDB {
+	memBolt := &BoltDB{
+		db:       db,
+		readOnly: readOnly,
+	}
 	db.View(func(tx *bolt.Tx) error {
 		return tx.ForEach(func(nm []byte, b *bolt.Bucket) error {
 			bb, err := readBucket(b)
@@ -346,16 +355,16 @@ func (p *BoltPair) GetPath() []string {
  * Mainly used for moving a bucket from one path to another
  * as in the 'renameBucket' function below.
  */
-func addBucketFromBoltBucket(path []string, bb *BoltBucket) error {
-	if err := insertBucket(path, bb.name); err == nil {
+func (bd *BoltDB) addBucketFromBoltBucket(path []string, bb *BoltBucket) error {
+	if err := bd.insertBucket(path, bb.name); err == nil {
 		bucketPath := append(path, bb.name)
 		for i := range bb.pairs {
-			if err = insertPair(bucketPath, bb.pairs[i].key, bb.pairs[i].val); err != nil {
+			if err = bd.insertPair(bucketPath, bb.pairs[i].key, bb.pairs[i].val); err != nil {
 				return err
 			}
 		}
 		for i := range bb.buckets {
-			if err = addBucketFromBoltBucket(bucketPath, &bb.buckets[i]); err != nil {
+			if err = bd.addBucketFromBoltBucket(bucketPath, &bb.buckets[i]); err != nil {
 				return err
 			}
 		}
@@ -363,11 +372,11 @@ func addBucketFromBoltBucket(path []string, bb *BoltBucket) error {
 	return nil
 }
 
-func deleteKey(path []string) error {
-	if AppArgs.ReadOnly {
+func (bd *BoltDB) deleteKey(path []string) error {
+	if bd.readOnly {
 		return errors.New("DB is in Read-Only Mode")
 	}
-	err := db.Update(func(tx *bolt.Tx) error {
+	err := bd.db.Update(func(tx *bolt.Tx) error {
 		// len(b.path)-1 is the key we need to delete,
 		// the rest are buckets leading to that key
 		if len(path) == 1 {
@@ -419,19 +428,19 @@ func readBucket(b *bolt.Bucket) (*BoltBucket, error) {
 	return bb, nil
 }
 
-func renameBucket(path []string, name string) error {
+func (bd *BoltDB) renameBucket(path []string, name string) error {
 	if name == path[len(path)-1] {
 		// No change requested
 		return nil
 	}
 	var bb *BoltBucket // For caching the current bucket
-	err := db.View(func(tx *bolt.Tx) error {
+	err := bd.db.View(func(tx *bolt.Tx) error {
 		// len(b.path)-1 is the key we need to delete,
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
 		if b != nil {
 			if len(path) > 1 {
-				for i := range path[1:len(path)] {
+				for i := range path[1:] {
 					b = b.Bucket([]byte(path[i+1]))
 					if b == nil {
 						return errors.New("renameBucket: Invalid Path")
@@ -457,7 +466,7 @@ func renameBucket(path []string, name string) error {
 	}
 
 	// Ok, we have the bucket cached, now delete the current instance
-	if err = deleteKey(path); err != nil {
+	if err = bd.deleteKey(path); err != nil {
 		return err
 	}
 	// Rechristen our cached bucket
@@ -465,17 +474,17 @@ func renameBucket(path []string, name string) error {
 	// And re-add it
 
 	parentPath := path[:len(path)-1]
-	if err = addBucketFromBoltBucket(parentPath, bb); err != nil {
+	if err = bd.addBucketFromBoltBucket(parentPath, bb); err != nil {
 		return err
 	}
 	return nil
 }
 
-func updatePairKey(path []string, k string) error {
-	if AppArgs.ReadOnly {
+func (bd *BoltDB) updatePairKey(path []string, k string) error {
+	if bd.readOnly {
 		return errors.New("DB is in Read-Only Mode")
 	}
-	err := db.Update(func(tx *bolt.Tx) error {
+	err := bd.db.Update(func(tx *bolt.Tx) error {
 		// len(b.path)-1 is the key for the pair we're updating,
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
@@ -503,11 +512,11 @@ func updatePairKey(path []string, k string) error {
 	return err
 }
 
-func updatePairValue(path []string, v string) error {
-	if AppArgs.ReadOnly {
+func (bd *BoltDB) updatePairValue(path []string, v string) error {
+	if bd.readOnly {
 		return errors.New("DB is in Read-Only Mode")
 	}
-	err := db.Update(func(tx *bolt.Tx) error {
+	err := bd.db.Update(func(tx *bolt.Tx) error {
 		// len(b.GetPath())-1 is the key for the pair we're updating,
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
@@ -529,12 +538,12 @@ func updatePairValue(path []string, v string) error {
 	return err
 }
 
-func insertBucket(path []string, n string) error {
-	if AppArgs.ReadOnly {
+func (bd *BoltDB) insertBucket(path []string, n string) error {
+	if bd.readOnly {
 		return errors.New("DB is in Read-Only Mode")
 	}
 	// Inserts a new bucket named 'n' at 'path'
-	err := db.Update(func(tx *bolt.Tx) error {
+	err := bd.db.Update(func(tx *bolt.Tx) error {
 		if len(path) == 0 {
 			// insert at root
 			_, err := tx.CreateBucket([]byte(n))
@@ -569,12 +578,12 @@ func insertBucket(path []string, n string) error {
 	return err
 }
 
-func insertPair(path []string, k string, v string) error {
-	if AppArgs.ReadOnly {
+func (bd *BoltDB) insertPair(path []string, k string, v string) error {
+	if bd.readOnly {
 		return errors.New("DB is in Read-Only Mode")
 	}
 	// Insert a new pair k => v at path
-	err := db.Update(func(tx *bolt.Tx) error {
+	err := bd.db.Update(func(tx *bolt.Tx) error {
 		if len(path) == 0 {
 			// We cannot insert a pair at root
 			return errors.New("insertPair: Cannot insert pair at root")
@@ -600,8 +609,8 @@ func insertPair(path []string, k string, v string) error {
 	return err
 }
 
-func exportValue(path []string, fName string) error {
-	return db.View(func(tx *bolt.Tx) error {
+func (bd *BoltDB) exportValue(path []string, fName string) error {
+	return bd.db.View(func(tx *bolt.Tx) error {
 		// len(b.path)-1 is the key whose value we want to export
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
@@ -624,8 +633,8 @@ func exportValue(path []string, fName string) error {
 	})
 }
 
-func exportJSON(path []string, fName string) error {
-	return db.View(func(tx *bolt.Tx) error {
+func (bd *BoltDB) exportJSON(path []string, fName string) error {
+	return bd.db.View(func(tx *bolt.Tx) error {
 		// len(b.path)-1 is the key whose value we want to export
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))

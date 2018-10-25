@@ -1,4 +1,4 @@
-package main
+package boltbrowser
 
 type Cursor struct {
 	x int

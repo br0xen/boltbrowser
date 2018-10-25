@@ -1,4 +1,4 @@
-package main
+package boltbrowser
 
 import "github.com/nsf/termbox-go"
 
@@ -14,7 +14,7 @@ type Style struct {
 	cursorBg  termbox.Attribute
 }
 
-func defaultStyle() Style {
+func DefaultStyle() Style {
 	var style Style
 	style.defaultBg = termbox.ColorBlack
 	style.defaultFg = termbox.ColorWhite

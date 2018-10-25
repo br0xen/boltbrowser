@@ -1,4 +1,4 @@
-package main
+package boltbrowser
 
 import "github.com/nsf/termbox-go"
 

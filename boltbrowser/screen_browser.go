@@ -1,7 +1,8 @@
-package main
+package boltbrowser
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -216,7 +217,7 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 			if b != nil {
 				if screen.mode == modeChangeKey {
 					newName := screen.inputModal.GetValue()
-					if renameBucket(screen.currentPath, newName) != nil {
+					if screen.db.renameBucket(screen.currentPath, newName) != nil {
 						screen.setMessage("Error renaming bucket.")
 					} else {
 						b.name = newName
@@ -228,7 +229,7 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 			} else if p != nil {
 				if screen.mode == modeChangeKey {
 					newKey := screen.inputModal.GetValue()
-					if updatePairKey(screen.currentPath, newKey) != nil {
+					if screen.db.updatePairKey(screen.currentPath, newKey) != nil {
 						screen.setMessage("Error occurred updating Pair.")
 					} else {
 						p.key = newKey
@@ -238,7 +239,7 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 					}
 				} else if screen.mode == modeChangeVal {
 					newVal := screen.inputModal.GetValue()
-					if updatePairValue(screen.currentPath, newVal) != nil {
+					if screen.db.updatePairValue(screen.currentPath, newVal) != nil {
 						screen.setMessage("Error occurred updating Pair.")
 					} else {
 						p.val = newVal
@@ -260,7 +261,7 @@ func (screen *BrowserScreen) handleDeleteKeyEvent(event termbox.Event) int {
 		if screen.confirmModal.IsAccepted() {
 			holdNextPath := screen.db.getNextVisiblePath(screen.currentPath)
 			holdPrevPath := screen.db.getPrevVisiblePath(screen.currentPath)
-			if deleteKey(screen.currentPath) == nil {
+			if screen.db.deleteKey(screen.currentPath) == nil {
 				screen.refreshDatabase()
 				// Move the current path endpoint appropriately
 				//found_new_path := false
@@ -326,7 +327,7 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 
 			parentB, _, _ := screen.db.getGenericFromPath(insertPath)
 			if screen.mode&modeInsertBucket == modeInsertBucket {
-				err := insertBucket(insertPath, newVal)
+				err := screen.db.insertBucket(insertPath, newVal)
 				if err != nil {
 					screen.setMessage(fmt.Sprintf("%s => %s", err, insertPath))
 				} else {
@@ -340,7 +341,7 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 				screen.mode = modeBrowse
 				screen.inputModal.Clear()
 			} else if screen.mode&modeInsertPair == modeInsertPair {
-				err := insertPair(insertPath, newVal, "")
+				err := screen.db.insertPair(insertPath, newVal, "")
 				if err != nil {
 					screen.setMessage(fmt.Sprintf("%s => %s", err, insertPath))
 					screen.refreshDatabase()
@@ -372,7 +373,7 @@ func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
 			if screen.mode&modeExportValue == modeExportValue {
 				// Exporting the value
 				if p != nil {
-					if err := exportValue(screen.currentPath, fileName); err != nil {
+					if err := screen.db.exportValue(screen.currentPath, fileName); err != nil {
 						//screen.setMessage("Error Exporting to file " + fileName + ".")
 						screen.setMessage(err.Error())
 					} else {
@@ -381,7 +382,7 @@ func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
 				}
 			} else if screen.mode&modeExportJSON == modeExportJSON {
 				if b != nil || p != nil {
-					if exportJSON(screen.currentPath, fileName) != nil {
+					if screen.db.exportJSON(screen.currentPath, fileName) != nil {
 						screen.setMessage("Error Exporting to file " + fileName + ".")
 					} else {
 						screen.setMessage("Value exported to file: " + fileName)
@@ -516,7 +517,7 @@ func (screen *BrowserScreen) drawScreen(style Style) {
 
 func (screen *BrowserScreen) drawHeader(style Style) {
 	width, _ := termbox.Size()
-	headerString := ProgramName + ": " + currentFilename
+	headerString := "boltbrowser: " + filepath.Base(screen.db.db.Path())
 	spaces := strings.Repeat(" ", ((width-len(headerString))/2)+1)
 	termboxUtil.DrawStringAtPoint(fmt.Sprintf("%s%s%s", spaces, headerString, spaces), 0, 0, style.titleFg, style.titleBg)
 }
@@ -946,8 +947,9 @@ func (screen *BrowserScreen) clearMessage() {
 }
 
 func (screen *BrowserScreen) refreshDatabase() {
-	shadowDB := screen.db
-	screen.db = screen.db.refreshDatabase()
+	shadowDB := new(BoltDB)
+	*shadowDB = *screen.db
+	screen.db.refreshDatabase()
 	screen.db.syncOpenBuckets(shadowDB)
 }
 

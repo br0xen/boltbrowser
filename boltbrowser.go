@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	"github.com/br0xen/boltbrowser/boltbrowser"
 	"github.com/nsf/termbox-go"
 )
 
@@ -15,7 +16,7 @@ var ProgramName = "boltbrowser"
 
 var databaseFiles []string
 var db *bolt.DB
-var memBolt *BoltDB
+var memBolt *boltbrowser.BoltDB
 
 var currentFilename string
 
@@ -100,7 +101,7 @@ func main() {
 		panic(err)
 	}
 	defer termbox.Close()
-	style := defaultStyle()
+	style := boltbrowser.DefaultStyle()
 	termbox.SetOutputMode(termbox.Output256)
 
 	for _, databaseFile := range databaseFiles {
@@ -112,7 +113,7 @@ func main() {
 			os.Exit(1)
 		} else if err != nil {
 			if len(databaseFiles) > 1 {
-				mainLoop(nil, style)
+				boltbrowser.MainLoop(nil, style)
 				continue
 			} else {
 				termbox.Close()
@@ -122,14 +123,14 @@ func main() {
 		}
 
 		// First things first, load the database into memory
-		memBolt.refreshDatabase()
+		memBolt = boltbrowser.NewModel(db, AppArgs.ReadOnly)
 		if AppArgs.ReadOnly {
 			// If we're opening it in readonly mode, close it now
 			db.Close()
 		}
 
 		// Kick off the UI loop
-		mainLoop(memBolt, style)
+		boltbrowser.MainLoop(memBolt, style)
 		defer db.Close()
 	}
 }

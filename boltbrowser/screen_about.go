@@ -1,4 +1,4 @@
-package main
+package boltbrowser
 
 import (
 	"fmt"

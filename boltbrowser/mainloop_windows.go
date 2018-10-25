@@ -1,12 +1,12 @@
 // +build windows
-package main
+package boltbrowser
 
 // Windows doesn't support process backgrounding like *nix.
 // So we have a separate loop for it.
 
 import "github.com/nsf/termbox-go"
 
-func mainLoop(memBolt *BoltDB, style Style) {
+func MainLoop(memBolt *BoltDB, style Style) {
 	screens := defaultScreensForData(memBolt)
 	displayScreen := screens[BrowserScreenIndex]
 	layoutAndDrawScreen(displayScreen, style)
