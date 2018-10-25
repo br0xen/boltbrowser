@@ -9,16 +9,11 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/br0xen/boltbrowser/boltbrowser"
-	"github.com/nsf/termbox-go"
 )
 
 var ProgramName = "boltbrowser"
 
 var databaseFiles []string
-var db *bolt.DB
-var memBolt *boltbrowser.BoltDB
-
-var currentFilename string
 
 const DefaultDBOpenTimeout = time.Second
 
@@ -92,45 +87,20 @@ func printUsage(err error) {
 }
 
 func main() {
-	var err error
-
 	parseArgs()
-
-	err = termbox.Init()
-	if err != nil {
-		panic(err)
-	}
-	defer termbox.Close()
-	style := boltbrowser.DefaultStyle()
-	termbox.SetOutputMode(termbox.Output256)
-
 	for _, databaseFile := range databaseFiles {
-		currentFilename = databaseFile
-		db, err = bolt.Open(databaseFile, 0600, &bolt.Options{Timeout: AppArgs.DBOpenTimeout})
+		db, err := bolt.Open(databaseFile, 0600, &bolt.Options{Timeout: AppArgs.DBOpenTimeout})
 		if err == bolt.ErrTimeout {
-			termbox.Close()
 			fmt.Printf("File %s is locked. Make sure it's not used by another app and try again\n", databaseFile)
 			os.Exit(1)
 		} else if err != nil {
-			if len(databaseFiles) > 1 {
-				boltbrowser.MainLoop(nil, style)
-				continue
-			} else {
-				termbox.Close()
-				fmt.Printf("Error reading file: %q\n", err.Error())
-				os.Exit(1)
-			}
+			fmt.Printf("Error reading file: %q\n", err.Error())
+			os.Exit(1)
 		}
-
-		// First things first, load the database into memory
-		memBolt = boltbrowser.NewModel(db, AppArgs.ReadOnly)
 		if AppArgs.ReadOnly {
-			// If we're opening it in readonly mode, close it now
 			db.Close()
 		}
-
-		// Kick off the UI loop
-		boltbrowser.MainLoop(memBolt, style)
-		defer db.Close()
+		boltbrowser.Run(db, AppArgs.ReadOnly)
+		db.Close()
 	}
 }

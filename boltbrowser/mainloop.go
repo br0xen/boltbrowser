@@ -6,10 +6,21 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/boltdb/bolt"
 	"github.com/nsf/termbox-go"
 )
 
-func MainLoop(memBolt *BoltDB, style Style) {
+func Run(db *bolt.DB, readOnly bool) {
+	err := termbox.Init()
+	if err != nil {
+		panic(err)
+	}
+	defer termbox.Close()
+	termbox.SetOutputMode(termbox.Output256)
+
+	memBolt := NewModel(db, readOnly)
+	style := DefaultStyle()
+
 	screens := defaultScreensForData(memBolt)
 	displayScreen := screens[BrowserScreenIndex]
 	layoutAndDrawScreen(displayScreen, style)
