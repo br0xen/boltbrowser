@@ -668,17 +668,17 @@ func genJSONString(b *bolt.Bucket) string {
 	return ret
 }
 
-var f *os.File
-
 func logToFile(s string) error {
 	return writeToFile("bolt-log", s+"\n", os.O_RDWR|os.O_APPEND)
 }
 
 func writeToFile(fn, s string, mode int) error {
+	var f *os.File
 	var err error
 	if f == nil {
 		f, err = os.OpenFile(fn, mode, 0660)
 	}
+	defer f.Close()
 	if err != nil {
 		return err
 	}
