@@ -93,6 +93,10 @@ func (screen *AboutScreen) drawScreen(style Style) {
 			yPos++
 		}
 	}
+	yPos++
+	versionString := fmt.Sprintf("Version: %0.1f", VersionNum)
+	termboxUtil.DrawStringAtPoint(versionString, (width-len(versionString))/2, yPos, style.defaultFg, style.defaultBg)
+	yPos++
 
 	commands1 := [...]Command{
 		{"h,←", "close parent"},
