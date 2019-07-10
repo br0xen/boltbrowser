@@ -116,6 +116,7 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		{"e", "edit value of pair"},
 		{"r", "rename pair/bucket"},
 		{"d", "convert ascii to decimal"},
+		{"t", "convert binary to UTC time"},
 		{"D", "delete item"},
 		{"x,X", "export as string/json to file"},
 

@@ -161,6 +161,9 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 	} else if event.Ch == 'd' {
 		screen.startAsciiToDecimal()
 
+	} else if event.Ch == 't' {
+		screen.startBinToTime()
+
 	} else if event.Key == termbox.KeyEnter {
 		b, p, _ := screen.db.getGenericFromPath(screen.currentPath)
 		if b != nil {
@@ -745,6 +748,31 @@ func (screen *BrowserScreen) startEditItem() bool {
 		mod.Show()
 		screen.inputModal = mod
 		screen.mode = modeChangeVal
+		return true
+	}
+	return false
+}
+
+func (screen *BrowserScreen) startBinToTime() bool {
+	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
+	if e == nil {
+		w, h := termbox.Size()
+		inpW, inpH := (w / 2), 6
+		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
+		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		if p != nil {
+			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Time for '%s'", p.key), inpW, termboxUtil.AlignCenter))
+			var decodedTime time.Time
+			err := decodedTime.UnmarshalBinary([]byte(p.val))
+			if err != nil {
+				mod.SetValue(fmt.Sprintf("cannot convert to UTC time from %s: %s", p.val, err.Error()))
+			} else {
+				mod.SetValue(decodedTime.String())
+			}
+		}
+		mod.Show()
+		screen.inputModal = mod
+		screen.mode = modeBrowse
 		return true
 	}
 	return false
