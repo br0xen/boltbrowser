@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -155,6 +157,9 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 
 	} else if event.Ch == 'r' {
 		screen.startRenameItem()
+
+	} else if event.Ch == 'd' {
+		screen.startAsciiToDecimal()
 
 	} else if event.Key == termbox.KeyEnter {
 		b, p, _ := screen.db.getGenericFromPath(screen.currentPath)
@@ -740,6 +745,30 @@ func (screen *BrowserScreen) startEditItem() bool {
 		mod.Show()
 		screen.inputModal = mod
 		screen.mode = modeChangeVal
+		return true
+	}
+	return false
+}
+
+func (screen *BrowserScreen) startAsciiToDecimal() bool {
+	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
+	if e == nil {
+		w, h := termbox.Size()
+		inpW, inpH := (w / 2), 6
+		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
+		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		if p != nil {
+			mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Decimal for '%s'", p.key), inpW, termboxUtil.AlignCenter))
+			encodedStr := hex.EncodeToString([]byte(p.val))
+			if s, err := strconv.ParseInt(encodedStr, 16, 32); err != nil {
+				mod.SetValue(fmt.Sprintf("cannot convert to decimal from ascii %s: %s", p.val, err.Error()))
+			} else {
+				mod.SetValue(strconv.FormatInt(s, 10))
+			}
+		}
+		mod.Show()
+		screen.inputModal = mod
+		screen.mode = modeBrowse
 		return true
 	}
 	return false
