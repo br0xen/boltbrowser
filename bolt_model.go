@@ -617,10 +617,8 @@ func exportValue(path []string, fName string) error {
 			bk := []byte(path[len(path)-1])
 			v := b.Get(bk)
 			return writeToFile(fName, string(v)+"\n", os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
-		} else {
-			return errors.New("exportValue: Invalid Bucket")
 		}
-		return nil
+		return errors.New("exportValue: Invalid Bucket")
 	})
 }
 
@@ -646,10 +644,8 @@ func exportJSON(path []string, fName string) error {
 				return writeToFile(fName, genJSONString(b.Bucket(bk)), os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
 			}
 			return writeToFile(fName, genJSONString(b), os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
-		} else {
-			return errors.New("exportValue: Invalid Bucket")
 		}
-		return nil
+		return errors.New("exportValue: Invalid Bucket")
 	})
 }
 

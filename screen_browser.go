@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -597,7 +598,7 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				keyString := fmt.Sprintf("Key: %s", stringify([]byte(p.key)))
 				startY += screen.drawMultilineText(keyString, 5, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-				valString := fmt.Sprintf("Value: %s", stringify([]byte(p.val)))
+				valString := fmt.Sprintf("Value: %s", formatValue([]byte(p.val)))
 				startY += screen.drawMultilineText(valString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			}
 		} else {
@@ -606,6 +607,28 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 			startY += screen.drawMultilineText(err.Error(), 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 		}
 	}
+}
+
+func formatValue(val []byte) []byte {
+	// Attempt JSON parsing and formatting
+	out, err := formatValueJSON(val)
+	if err == nil {
+		return out
+	}
+	return []byte(val)
+}
+
+func formatValueJSON(val []byte) ([]byte, error) {
+	var jsonOut interface{}
+	err := json.Unmarshal(val, &jsonOut)
+	if err != nil {
+		return val, err
+	}
+	out, err := json.MarshalIndent(jsonOut, "", "  ")
+	if err != nil {
+		return val, err
+	}
+	return out, nil
 }
 
 /* drawBucket
@@ -919,9 +942,9 @@ func (screen *BrowserScreen) drawMultilineText(msg string, indentPadding, startX
 			msg = spacePadding + msg[maxWidth-1:]
 			numLines++
 		}
+		termboxUtil.DrawStringAtPoint(msg, startX, (startY + numLines), fg, bg)
+		numLines++
 	}
-	termboxUtil.DrawStringAtPoint(msg, startX, (startY + numLines), fg, bg)
-	numLines++
 	return numLines
 }
 
