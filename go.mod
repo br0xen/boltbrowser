@@ -7,3 +7,5 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20180819125858-b66b20ab708e
 	golang.org/x/sys v0.0.0-20191002091554-b397fe3ad8ed // indirect
 )
+
+go 1.13

@@ -30,3 +30,10 @@ func stringify(v []byte) string {
 
 	return fmt.Sprintf("%x", v)
 }
+
+func stringifyPath(path []string) []string {
+	for k, v := range path {
+		path[k] = stringify([]byte(v))
+	}
+	return path
+}

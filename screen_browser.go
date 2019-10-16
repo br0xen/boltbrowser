@@ -587,22 +587,22 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 		startY := 2
 		if err == nil {
 			if b != nil {
-				pathString := fmt.Sprintf("Path: %s", strings.Join(b.GetPath(), " → "))
+				pathString := fmt.Sprintf("Path: %s", strings.Join(stringifyPath(b.GetPath()), " → "))
 				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				bucketString := fmt.Sprintf("Buckets: %d", len(b.buckets))
 				startY += screen.drawMultilineText(bucketString, 9, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				pairsString := fmt.Sprintf("Pairs: %d", len(b.pairs))
 				startY += screen.drawMultilineText(pairsString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			} else if p != nil {
-				pathString := fmt.Sprintf("Path: %s", strings.Join(p.GetPath(), " → "))
+				pathString := fmt.Sprintf("Path: %s", strings.Join(stringifyPath(p.GetPath()), " → "))
 				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				keyString := fmt.Sprintf("Key: %s", stringify([]byte(p.key)))
 				startY += screen.drawMultilineText(keyString, 5, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-				valString := fmt.Sprintf("Value: %s", formatValue([]byte(p.val)))
+				valString := fmt.Sprintf("Value: %s", stringify(formatValue([]byte(p.val))))
 				startY += screen.drawMultilineText(valString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			}
 		} else {
-			pathString := fmt.Sprintf("Path: %s", strings.Join(screen.currentPath, " → "))
+			pathString := fmt.Sprintf("Path: %s", strings.Join(stringifyPath(screen.currentPath), " → "))
 			startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			startY += screen.drawMultilineText(err.Error(), 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 		}
@@ -657,7 +657,7 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 
 	padAmt := (len(bkt.GetPath())*2 + 2)
 	if bkt.expanded {
-		bktString = bktString + "- " + bkt.name
+		bktString = bktString + "- " + stringify([]byte(bkt.name))
 		if len(bktString)+padAmt > w {
 			bktString = bktString[:w-padAmt-3] + "..."
 		}
@@ -670,7 +670,7 @@ func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int
 			usedLines += screen.drawPair(&bkt.pairs[i], style, y+usedLines)
 		}
 	} else {
-		bktString = bktString + "+ " + bkt.name
+		bktString = bktString + "+ " + stringify([]byte(bkt.name))
 		if len(bktString)+padAmt > w {
 			bktString = bktString[:w-padAmt-3] + "..."
 		}
