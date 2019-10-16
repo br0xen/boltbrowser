@@ -12,7 +12,7 @@ import (
 )
 
 var ProgramName = "boltbrowser"
-var VersionNum = 1.2
+var VersionNum = 2.0
 
 var databaseFiles []string
 var db *bolt.DB

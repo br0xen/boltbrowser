@@ -17,6 +17,7 @@ type ViewPort struct {
 	bytesPerRow  int
 	numberOfRows int
 	firstRow     int
+  scrollRow int
 }
 
 /*
@@ -24,7 +25,8 @@ BrowserScreen holds all that's going on :D
 */
 type BrowserScreen struct {
 	db             *BoltDB
-	viewPort       ViewPort
+	leftViewPort       ViewPort
+  rightViewPort ViewPort
 	queuedCommand  string
 	currentPath    []string
 	currentType    int
@@ -37,6 +39,9 @@ type BrowserScreen struct {
 
 	rightPaneHeight int
 	rightPaneCursor int
+
+	leftPaneBuffer  []Line
+	rightPaneBuffer []Line
 }
 
 /*
@@ -480,10 +485,15 @@ func (screen *BrowserScreen) moveCursorDown() bool {
 	return false
 }
 func (screen *BrowserScreen) moveRightPaneUp() bool {
+  if screen.rightViewPort.scrollRow > 0 {
+    screen.rightViewPort.scrollRow--
+    return true
+  }
 	return false
 }
 func (screen *BrowserScreen) moveRightPaneDown() bool {
-	return false
+  screen.rightViewPort.scrollRow++
+  return true
 }
 
 func (screen *BrowserScreen) performLayout() {}
@@ -528,41 +538,35 @@ func (screen *BrowserScreen) drawFooter(style Style) {
 	_, height := termbox.Size()
 	termboxUtil.DrawStringAtPoint(screen.message, 0, height-1, style.defaultFg, style.defaultBg)
 }
+
+func (screen *BrowserScreen) buildLeftPane(style Style) {
+  screen.leftPaneBuffer = nil
+	if len(screen.currentPath) == 0 {
+		screen.currentPath = screen.db.getNextVisiblePath(nil)
+	}
+  curPathSpot := 0
+  visPaths, err := screen.db.buildVisiblePathSlice()
+  if err == nil {
+    for idx, pth := range visPaths {
+      screen.leftPaneBuffer 
+    }
+  }
+}
+
 func (screen *BrowserScreen) drawLeftPane(style Style) {
+  screen.buildLeftPane(style)
 	w, h := termbox.Size()
 	if w > 80 {
 		w = w / 2
 	}
-	screen.viewPort.numberOfRows = h - 2
-
+  screen.leftViewPort.bytesPerRow = w
+	screen.leftViewPort.numberOfRows = h - 2
 	termboxUtil.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
 	y := 2
-	screen.viewPort.firstRow = y
-	if len(screen.currentPath) == 0 {
-		screen.currentPath = screen.db.getNextVisiblePath(nil)
-	}
-
-	// So we know how much of the tree _wants_ to be visible
-	// we only have screen.viewPort.numberOfRows of space though
-	curPathSpot := 0
-	visPaths, err := screen.db.buildVisiblePathSlice()
-	if err == nil {
-		for idx, pth := range visPaths {
-			isCurPath := true
-			for i := range pth {
-				if len(screen.currentPath) > i && pth[i] != screen.currentPath[i] {
-					isCurPath = false
-					break
-				}
-			}
-			if isCurPath {
-				curPathSpot = idx
-			}
-		}
-	}
+	screen.leftViewPort.firstRow = y
 
 	treeOffset := 0
-	maxCursor := screen.viewPort.numberOfRows * 2 / 3
+	maxCursor := screen.leftViewPort.numberOfRows * 2 / 3
 	if curPathSpot > maxCursor {
 		treeOffset = curPathSpot - maxCursor
 	}
@@ -573,39 +577,71 @@ func (screen *BrowserScreen) drawLeftPane(style Style) {
 		y += bktH
 	}
 }
+
+func (screen *BrowserScreen) buildRightPane(style Style) {
+	screen.rightPaneBuffer = nil
+	b, p, err := screen.db.getGenericFromPath(screen.currentPath)
+	if err == nil {
+		if b != nil {
+			screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+				Line{fmt.Sprintf("Path: %s", strings.Join(stringifyPath(b.GetPath()), " → ")), style.defaultFg, style.defaultBg})
+			screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+				Line{fmt.Sprintf("Buckets: %d", len(b.buckets)), style.defaultFg, style.defaultBg})
+			screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+				Line{fmt.Sprintf("Pairs: %d", len(b.pairs)), style.defaultFg, style.defaultBg})
+		} else if p != nil {
+			screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+				Line{fmt.Sprintf("Path: %s", strings.Join(stringifyPath(p.GetPath()), " → ")), style.defaultFg, style.defaultBg})
+			screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+				Line{fmt.Sprintf("Key: %s", stringify([]byte(p.key))), style.defaultFg, style.defaultBg})
+
+      value := strings.Split(string(formatValue([]byte(p.val))), "\n")
+      if len(value) == 1 {
+        screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+          Line{fmt.Sprintf("Value: %s", value[0]), style.defaultFg, style.defaultBg})
+      } else {
+        screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+          Line{"Value:", style.defaultFg, style.defaultBg})
+        for _, v := range value {
+          screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+            Line{v, style.defaultFg, style.defaultBg})
+        }
+      }
+		}
+	} else {
+		screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+			Line{fmt.Sprintf("Path: %s", strings.Join(stringifyPath(screen.currentPath), " → ")), style.defaultFg, style.defaultBg})
+		screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+			Line{err.Error(), termbox.ColorRed, termbox.ColorBlack})
+	}
+}
+
 func (screen *BrowserScreen) drawRightPane(style Style) {
+	screen.buildRightPane(style)
 	w, h := termbox.Size()
 	if w > 80 {
+    screen.rightViewPort.bytesPerRow = w / 2
+    screen.rightViewPort.numberOfRows = h - 2
 		// Screen is wide enough, split it
 		termboxUtil.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
-		termboxUtil.FillWithChar('|', (w / 2), screen.viewPort.firstRow-1, (w / 2), h, style.defaultFg, style.defaultBg)
+		termboxUtil.FillWithChar('|', (w / 2), screen.rightViewPort.firstRow-1, (w / 2), h, style.defaultFg, style.defaultBg)
 		// Clear the right pane
-		termboxUtil.FillWithChar(' ', (w/2)+1, screen.viewPort.firstRow, w, h, style.defaultFg, style.defaultBg)
+		termboxUtil.FillWithChar(' ', (w/2)+1, screen.rightViewPort.firstRow, w, h, style.defaultFg, style.defaultBg)
 
-		b, p, err := screen.db.getGenericFromPath(screen.currentPath)
 		startX := (w / 2) + 2
 		startY := 2
-		if err == nil {
-			if b != nil {
-				pathString := fmt.Sprintf("Path: %s", strings.Join(stringifyPath(b.GetPath()), " → "))
-				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-				bucketString := fmt.Sprintf("Buckets: %d", len(b.buckets))
-				startY += screen.drawMultilineText(bucketString, 9, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-				pairsString := fmt.Sprintf("Pairs: %d", len(b.pairs))
-				startY += screen.drawMultilineText(pairsString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-			} else if p != nil {
-				pathString := fmt.Sprintf("Path: %s", strings.Join(stringifyPath(p.GetPath()), " → "))
-				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-				keyString := fmt.Sprintf("Key: %s", stringify([]byte(p.key)))
-				startY += screen.drawMultilineText(keyString, 5, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-				valString := fmt.Sprintf("Value: %s", formatValue([]byte(p.val)))
-				startY += screen.drawMultilineText(valString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-			}
-		} else {
-			pathString := fmt.Sprintf("Path: %s", strings.Join(stringifyPath(screen.currentPath), " → "))
-			startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-			startY += screen.drawMultilineText(err.Error(), 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-		}
+    maxScroll := len(screen.rightPaneBuffer)-screen.rightViewPort.numberOfRows
+    if maxScroll < 0 {
+      maxScroll = 0
+    }
+    if screen.rightViewPort.scrollRow > maxScroll {
+      screen.rightViewPort.scrollRow = maxScroll
+    }
+    if len(screen.rightPaneBuffer) > 0 {
+      for k, v := range screen.rightPaneBuffer[screen.rightViewPort.scrollRow:] {
+        termboxUtil.DrawStringAtPoint(v.Text, startX, (startY + k - 1), v.Fg, v.Bg)
+      }
+    }
 	}
 }
 
@@ -629,6 +665,10 @@ func formatValueJSON(val []byte) ([]byte, error) {
 		return val, err
 	}
 	return out, nil
+}
+
+func (screen *BrowserScreen) bucketToStrings(bkt *BoltBucket, style Style) []string {
+
 }
 
 /* drawBucket

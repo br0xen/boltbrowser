@@ -20,16 +20,9 @@ AboutScreen is just a basic 'int' type that we can extend to make this screen
 */
 type AboutScreen int
 
-func drawCommandsAtPoint(commands []Command, x int, y int, style Style) {
-	xPos, yPos := x, y
-	for index, cmd := range commands {
-		termboxUtil.DrawStringAtPoint(fmt.Sprintf("%6s", cmd.key), xPos, yPos, style.defaultFg, style.defaultBg)
-		termboxUtil.DrawStringAtPoint(cmd.description, xPos+8, yPos, style.defaultFg, style.defaultBg)
-		yPos++
-		if index > 2 && index%2 == 1 {
-			yPos++
-		}
-	}
+func drawCommandAtPoint(cmd Command, xPos int, yPos int, style Style) {
+	termboxUtil.DrawStringAtPoint(fmt.Sprintf("%6s", cmd.key), xPos, yPos, style.defaultFg, style.defaultBg)
+	termboxUtil.DrawStringAtPoint(cmd.description, xPos+8, yPos, style.defaultFg, style.defaultBg)
 }
 
 func (screen *AboutScreen) handleKeyEvent(event termbox.Event) int {
@@ -96,36 +89,58 @@ func (screen *AboutScreen) drawScreen(style Style) {
 	yPos++
 	versionString := fmt.Sprintf("Version: %0.1f", VersionNum)
 	termboxUtil.DrawStringAtPoint(versionString, (width-len(versionString))/2, yPos, style.defaultFg, style.defaultBg)
-	yPos++
 
-	commands1 := [...]Command{
+	commands1 := []Command{
 		{"h,←", "close parent"},
 		{"j,↓", "down"},
 		{"k,↑", "up"},
 		{"l,→", "open item"},
-
+		{"J", "scroll right pane down"},
+		{"K", "scroll right pane up"},
+		{"", ""},
 		{"g", "goto top"},
 		{"G", "goto bottom"},
+		{"", ""},
 		{"ctrl+f", "jump down"},
 		{"ctrl+b", "jump up"},
 	}
 
-	commands2 := [...]Command{
+	commands2 := []Command{
 		{"p,P", "create pair/at parent"},
 		{"b,B", "create bucket/at parent"},
 		{"e", "edit value of pair"},
 		{"r", "rename pair/bucket"},
+		{"", ""},
+		{"", ""},
 		{"D", "delete item"},
 		{"x,X", "export as string/json to file"},
-
+		{"", ""},
 		{"?", "this screen"},
 		{"q", "quit program"},
 	}
-	xPos = startX // + 20
+	var maxCmd1 int
+	for k := range commands1 {
+		tst := len(commands1[k].key) + 1 + len(commands1[k].description)
+		if tst > maxCmd1 {
+			maxCmd1 = tst
+		}
+	}
+	var maxCmd2 int
+	for k := range commands2 {
+		tst := len(commands2[k].key) + 1 + len(commands2[k].description)
+		if tst > maxCmd2 {
+			maxCmd2 = tst
+		}
+	}
+	xPos = (width / 2) - ((maxCmd1 + maxCmd2) / 2)
 	yPos++
 
-	drawCommandsAtPoint(commands1[:], xPos, yPos+1, style)
-	drawCommandsAtPoint(commands2[:], xPos+20, yPos+1, style)
+	for k := range commands1 {
+		drawCommandAtPoint(commands1[k], xPos, yPos+1+k, style)
+	}
+	for k := range commands2 {
+		drawCommandAtPoint(commands2[k], xPos+40, yPos+1+k, style)
+	}
 	exitTxt := "Press any key to return to browser"
 	termboxUtil.DrawStringAtPoint(exitTxt, (width-len(exitTxt))/2, height-1, style.titleFg, style.titleBg)
 }

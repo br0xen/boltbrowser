@@ -19,9 +19,7 @@ const (
 )
 
 func defaultScreensForData(db *BoltDB) []Screen {
-	var viewPort ViewPort
-
-	browserScreen := BrowserScreen{db: db, viewPort: viewPort}
+	browserScreen := BrowserScreen{db: db, rightViewPort: ViewPort{}, leftViewPort: ViewPort{}}
 	aboutScreen := AboutScreen(0)
 	screens := [...]Screen{
 		&browserScreen,
@@ -40,4 +38,10 @@ func layoutAndDrawScreen(screen Screen, style Style) {
 	drawBackground(style.defaultBg)
 	screen.drawScreen(style)
 	termbox.Flush()
+}
+
+type Line struct {
+	Text string
+	Fg   termbox.Attribute
+	Bg   termbox.Attribute
 }
