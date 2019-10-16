@@ -598,7 +598,7 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 				startY += screen.drawMultilineText(pathString, 6, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 				keyString := fmt.Sprintf("Key: %s", stringify([]byte(p.key)))
 				startY += screen.drawMultilineText(keyString, 5, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
-				valString := fmt.Sprintf("Value: %s", stringify(formatValue([]byte(p.val))))
+				valString := fmt.Sprintf("Value: %s", formatValue([]byte(p.val)))
 				startY += screen.drawMultilineText(valString, 7, startX, startY, (w/2)-1, style.defaultFg, style.defaultBg)
 			}
 		} else {
@@ -615,7 +615,7 @@ func formatValue(val []byte) []byte {
 	if err == nil {
 		return out
 	}
-	return []byte(val)
+	return []byte(stringify([]byte(val)))
 }
 
 func formatValueJSON(val []byte) ([]byte, error) {
