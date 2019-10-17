@@ -21,12 +21,12 @@ Then you'll have `boltbrowser` in your path.
 Pre-built Binaries
 ------------------
 Here are pre-built binaries:
-* [Linux 64-bit](https://bullercodeworks.com/downloads/boltbrowser/boltbrowser.linux64)
-* [Linux 32-bit](https://bullercodeworks.com/downloads/boltbrowser/boltbrowser.linux386)
-* [Linux Arm](https://bullercodeworks.com/downloads/boltbrowser/boltbrowser.linuxarm)
-* [Windows 64-bit](https://bullercodeworks.com/downloads/boltbrowser/boltbrowser.win64.exe)
-* [Windows 32-bit](https://bullercodeworks.com/downloads/boltbrowser/boltbrowser.win386.exe)
-* [Mac OS](https://bullercodeworks.com/downloads/boltbrowser/boltbrowser.darwin64)
+* [Linux 64-bit](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.linux64.zip)
+* [Linux 32-bit](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.linux386.zip)
+* [Linux Arm](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.linuxarm.zip)
+* [Windows 64-bit](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.win64.exe.zip)
+* [Windows 32-bit](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.win386.exe.zip)
+* [Mac OS](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.darwin64.zip)
 
 Usage
 -----
