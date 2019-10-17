@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/br0xen/termbox-util"
+	termboxUtil "github.com/br0xen/termbox-util"
 	"github.com/nsf/termbox-go"
 )
 
@@ -17,7 +17,7 @@ type ViewPort struct {
 	bytesPerRow  int
 	numberOfRows int
 	firstRow     int
-  scrollRow int
+	scrollRow    int
 }
 
 /*
@@ -25,8 +25,8 @@ BrowserScreen holds all that's going on :D
 */
 type BrowserScreen struct {
 	db             *BoltDB
-	leftViewPort       ViewPort
-  rightViewPort ViewPort
+	leftViewPort   ViewPort
+	rightViewPort  ViewPort
 	queuedCommand  string
 	currentPath    []string
 	currentType    int
@@ -36,9 +36,6 @@ type BrowserScreen struct {
 	confirmModal   *termboxUtil.ConfirmModal
 	messageTimeout time.Duration
 	messageTime    time.Time
-
-	rightPaneHeight int
-	rightPaneCursor int
 
 	leftPaneBuffer  []Line
 	rightPaneBuffer []Line
@@ -485,15 +482,15 @@ func (screen *BrowserScreen) moveCursorDown() bool {
 	return false
 }
 func (screen *BrowserScreen) moveRightPaneUp() bool {
-  if screen.rightViewPort.scrollRow > 0 {
-    screen.rightViewPort.scrollRow--
-    return true
-  }
+	if screen.rightViewPort.scrollRow > 0 {
+		screen.rightViewPort.scrollRow--
+		return true
+	}
 	return false
 }
 func (screen *BrowserScreen) moveRightPaneDown() bool {
-  screen.rightViewPort.scrollRow++
-  return true
+	screen.rightViewPort.scrollRow++
+	return true
 }
 
 func (screen *BrowserScreen) performLayout() {}
@@ -540,42 +537,44 @@ func (screen *BrowserScreen) drawFooter(style Style) {
 }
 
 func (screen *BrowserScreen) buildLeftPane(style Style) {
-  screen.leftPaneBuffer = nil
+	screen.leftPaneBuffer = nil
 	if len(screen.currentPath) == 0 {
 		screen.currentPath = screen.db.getNextVisiblePath(nil)
 	}
-  curPathSpot := 0
-  visPaths, err := screen.db.buildVisiblePathSlice()
-  if err == nil {
-    for idx, pth := range visPaths {
-      screen.leftPaneBuffer 
+	for i := range screen.db.buckets {
+		screen.leftPaneBuffer = append(screen.leftPaneBuffer, screen.bucketToLines(&screen.db.buckets[i], style)...)
+	}
+  // Find the cursor in the leftPane
+  for k, v := range screen.leftPaneBuffer {
+    if v.Fg == style.cursorFg {
+      screen.leftViewPort.scrollRow = k
+      break
     }
   }
 }
 
 func (screen *BrowserScreen) drawLeftPane(style Style) {
-  screen.buildLeftPane(style)
+	screen.buildLeftPane(style)
 	w, h := termbox.Size()
 	if w > 80 {
 		w = w / 2
 	}
-  screen.leftViewPort.bytesPerRow = w
+	screen.leftViewPort.bytesPerRow = w
 	screen.leftViewPort.numberOfRows = h - 2
 	termboxUtil.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
-	y := 2
-	screen.leftViewPort.firstRow = y
+  startX, startY := 0, 3
+	screen.leftViewPort.firstRow = startY
+  treeOffset := 0
+  maxCursor := screen.leftViewPort.numberOfRows * 2 / 3
 
-	treeOffset := 0
-	maxCursor := screen.leftViewPort.numberOfRows * 2 / 3
-	if curPathSpot > maxCursor {
-		treeOffset = curPathSpot - maxCursor
-	}
-
-	for i := range screen.db.buckets {
-		// The drawBucket function returns how many lines it took up
-		bktH := screen.drawBucket(&screen.db.buckets[i], style, (y - treeOffset))
-		y += bktH
-	}
+  if screen.leftViewPort.scrollRow > maxCursor {
+    treeOffset = screen.leftViewPort.scrollRow - maxCursor
+  }
+  if len(screen.leftPaneBuffer) > 0 {
+    for k, v := range screen.leftPaneBuffer[treeOffset:] {
+      termboxUtil.DrawStringAtPoint(v.Text, startX, (startY + k - 1), v.Fg, v.Bg)
+    }
+  }
 }
 
 func (screen *BrowserScreen) buildRightPane(style Style) {
@@ -595,18 +594,18 @@ func (screen *BrowserScreen) buildRightPane(style Style) {
 			screen.rightPaneBuffer = append(screen.rightPaneBuffer,
 				Line{fmt.Sprintf("Key: %s", stringify([]byte(p.key))), style.defaultFg, style.defaultBg})
 
-      value := strings.Split(string(formatValue([]byte(p.val))), "\n")
-      if len(value) == 1 {
-        screen.rightPaneBuffer = append(screen.rightPaneBuffer,
-          Line{fmt.Sprintf("Value: %s", value[0]), style.defaultFg, style.defaultBg})
-      } else {
-        screen.rightPaneBuffer = append(screen.rightPaneBuffer,
-          Line{"Value:", style.defaultFg, style.defaultBg})
-        for _, v := range value {
-          screen.rightPaneBuffer = append(screen.rightPaneBuffer,
-            Line{v, style.defaultFg, style.defaultBg})
-        }
-      }
+			value := strings.Split(string(formatValue([]byte(p.val))), "\n")
+			if len(value) == 1 {
+				screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+					Line{fmt.Sprintf("Value: %s", value[0]), style.defaultFg, style.defaultBg})
+			} else {
+				screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+					Line{"Value:", style.defaultFg, style.defaultBg})
+				for _, v := range value {
+					screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+						Line{v, style.defaultFg, style.defaultBg})
+				}
+			}
 		}
 	} else {
 		screen.rightPaneBuffer = append(screen.rightPaneBuffer,
@@ -620,28 +619,28 @@ func (screen *BrowserScreen) drawRightPane(style Style) {
 	screen.buildRightPane(style)
 	w, h := termbox.Size()
 	if w > 80 {
-    screen.rightViewPort.bytesPerRow = w / 2
-    screen.rightViewPort.numberOfRows = h - 2
+		screen.rightViewPort.bytesPerRow = w / 2
+		screen.rightViewPort.numberOfRows = h - 2
 		// Screen is wide enough, split it
 		termboxUtil.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
 		termboxUtil.FillWithChar('|', (w / 2), screen.rightViewPort.firstRow-1, (w / 2), h, style.defaultFg, style.defaultBg)
 		// Clear the right pane
-		termboxUtil.FillWithChar(' ', (w/2)+1, screen.rightViewPort.firstRow, w, h, style.defaultFg, style.defaultBg)
+		termboxUtil.FillWithChar(' ', (w/2)+1, screen.rightViewPort.firstRow+2, w, h, style.defaultFg, style.defaultBg)
 
 		startX := (w / 2) + 2
-		startY := 2
-    maxScroll := len(screen.rightPaneBuffer)-screen.rightViewPort.numberOfRows
-    if maxScroll < 0 {
-      maxScroll = 0
-    }
-    if screen.rightViewPort.scrollRow > maxScroll {
-      screen.rightViewPort.scrollRow = maxScroll
-    }
-    if len(screen.rightPaneBuffer) > 0 {
-      for k, v := range screen.rightPaneBuffer[screen.rightViewPort.scrollRow:] {
-        termboxUtil.DrawStringAtPoint(v.Text, startX, (startY + k - 1), v.Fg, v.Bg)
-      }
-    }
+		startY := 3
+		maxScroll := len(screen.rightPaneBuffer) - screen.rightViewPort.numberOfRows
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		if screen.rightViewPort.scrollRow > maxScroll {
+			screen.rightViewPort.scrollRow = maxScroll
+		}
+		if len(screen.rightPaneBuffer) > 0 {
+			for k, v := range screen.rightPaneBuffer[screen.rightViewPort.scrollRow:] {
+				termboxUtil.DrawStringAtPoint(v.Text, startX, (startY + k - 1), v.Fg, v.Bg)
+			}
+		}
 	}
 }
 
@@ -667,105 +666,31 @@ func formatValueJSON(val []byte) ([]byte, error) {
 	return out, nil
 }
 
-func (screen *BrowserScreen) bucketToStrings(bkt *BoltBucket, style Style) []string {
-
-}
-
-/* drawBucket
- * @bkt *BoltBucket - The bucket to draw
- * @style Style - The style to use
- * @w int - The Width of the lines
- * @y int - The Y position to start drawing
- * return - The number of lines used
- */
-func (screen *BrowserScreen) drawBucket(bkt *BoltBucket, style Style, y int) int {
-	w, _ := termbox.Size()
-	if w > 80 {
-		w = w / 2
-	}
-	usedLines := 0
-	bucketFg := style.defaultFg
-	bucketBg := style.defaultBg
+func (screen *BrowserScreen) bucketToLines(bkt *BoltBucket, style Style) []Line {
+	var ret []Line
+	bfg, bbg := style.defaultFg, style.defaultBg
 	if comparePaths(screen.currentPath, bkt.GetPath()) {
-		bucketFg = style.cursorFg
-		bucketBg = style.cursorBg
+		bfg, bbg = style.cursorFg, style.cursorBg
 	}
-
-	prefixSpaces := strings.Repeat(" ", len(bkt.GetPath())*2)
-	bktString := prefixSpaces
-	prefixSpaces = prefixSpaces + "  "
-
-	padAmt := (len(bkt.GetPath())*2 + 2)
+	bktPrefix := strings.Repeat(" ", len(bkt.GetPath())*2)
 	if bkt.expanded {
-		bktString = bktString + "- " + stringify([]byte(bkt.name))
-		if len(bktString)+padAmt > w {
-			bktString = bktString[:w-padAmt-3] + "..."
-		}
-		usedLines = screen.drawMultilineText(bktString, (len(bkt.GetPath())*2 + 2), 0, y, (w - 1), bucketFg, bucketBg)
-
+		ret = append(ret, Line{bktPrefix + "- " + stringify([]byte(bkt.name)), bfg, bbg})
 		for i := range bkt.buckets {
-			usedLines += screen.drawBucket(&bkt.buckets[i], style, y+usedLines)
+			ret = append(ret, screen.bucketToLines(&bkt.buckets[i], style)...)
 		}
-		for i := range bkt.pairs {
-			usedLines += screen.drawPair(&bkt.pairs[i], style, y+usedLines)
-		}
-	} else {
-		bktString = bktString + "+ " + stringify([]byte(bkt.name))
-		if len(bktString)+padAmt > w {
-			bktString = bktString[:w-padAmt-3] + "..."
-		}
-		usedLines = screen.drawMultilineText(bktString, (len(bkt.GetPath())*2 + 2), 0, y, (w - 1), bucketFg, bucketBg)
-	}
-	return usedLines
-}
-
-func (screen *BrowserScreen) drawPair(bp *BoltPair, style Style, y int) int {
-	w, _ := termbox.Size()
-	if w > 80 {
-		w = w / 2
-	}
-	usedLines := 0
-	bucketFg := style.defaultFg
-	bucketBg := style.defaultBg
-	if comparePaths(screen.currentPath, bp.GetPath()) {
-		bucketFg = style.cursorFg
-		bucketBg = style.cursorBg
-	}
-
-	prefixSpaces := strings.Repeat(" ", len(bp.GetPath())*2)
-	pairString := prefixSpaces
-	pairString = fmt.Sprintf("%s%s: %s", pairString, stringify([]byte(bp.key)), stringify([]byte(bp.val)))
-	if len(pairString) > w {
-	}
-	prefixSpaces = prefixSpaces + "  "
-	if len(pairString) > w {
-		// The long pair strings are causing a problem, for now, truncate
-		pairString = pairString[:w-3] + "..."
-	}
-	/* TODO: Re-enable this when I figure out the display issue
-		// Long pair string, wrap it
-		// We're going to try to wrap it at the :, if we can
-		if len(bp.GetPath())*2+len(bp.key)+1 > w {
-			// We can't... So just wrap it
-			usedLines = screen.drawMultilineText(pairString, (len(bp.GetPath()) * 2), 0, y, (w - 1), style.defaultFg, style.defaultBg)
-		} else {
-			// That's convenient, wrap at the :
-			pairString := strings.Repeat(" ", len(bp.GetPath())*2)
-			pairString = fmt.Sprintf("%s%s:", pairString, bp.key)
-			termboxUtil.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
-			usedLines++
-			pairString = strings.Repeat(" ", len(bp.GetPath())*2+2) + bp.val
-			usedLines += screen.drawMultilineText(pairString, (len(bp.GetPath())*2)+2, 0, y+1, (w - 1), bucketFg, bucketBg)
+		for _, bp := range bkt.pairs {
+			pfg, pbg := style.defaultFg, style.defaultBg
+			if comparePaths(screen.currentPath, bp.GetPath()) {
+				pfg, pbg = style.cursorFg, style.cursorBg
+			}
+			prPrefix := strings.Repeat(" ", len(bp.GetPath())*2)
+			pairString := fmt.Sprintf("%s%s: %s", prPrefix, stringify([]byte(bp.key)), stringify([]byte(bp.val)))
+			ret = append(ret, Line{pairString, pfg, pbg})
 		}
 	} else {
-	*/
-	if w-len(pairString) > 0 {
-		pairString = fmt.Sprintf("%s%s", pairString, strings.Repeat(" ", (w-len(pairString))))
+		ret = append(ret, Line{bktPrefix + "+ " + stringify([]byte(bkt.name)), bfg, bbg})
 	}
-	termboxUtil.DrawStringAtPoint(pairString, 0, y, bucketFg, bucketBg)
-	usedLines = 1
-	// }
-	return usedLines
+	return ret
 }
 
 func (screen *BrowserScreen) startDeleteItem() bool {
@@ -961,31 +886,6 @@ func (screen *BrowserScreen) startExportJSON() bool {
 		return true
 	}
 	return false
-}
-
-// Print text on multiple lines, if needed
-// msg - What to print
-// indentPadding - number of spaces to pad lines after the first
-// startX - Starting x
-// startY - Starting y
-// maxWidth - Maximum width
-// fg, bg - Colors
-// Returns the number of lines used
-func (screen *BrowserScreen) drawMultilineText(msg string, indentPadding, startX, startY, maxWidth int, fg, bg termbox.Attribute) int {
-	var numLines int
-	spacePadding := strings.Repeat(" ", indentPadding)
-	// First we need to split 'msg' into the lines it should have (split on '\n')
-	msgs := strings.Split(msg, "\n")
-	for _, msg = range msgs {
-		for len(msg) > maxWidth {
-			termboxUtil.DrawStringAtPoint(msg[:maxWidth-1], startX, (startY + numLines), fg, bg)
-			msg = spacePadding + msg[maxWidth-1:]
-			numLines++
-		}
-		termboxUtil.DrawStringAtPoint(msg, startX, (startY + numLines), fg, bg)
-		numLines++
-	}
-	return numLines
 }
 
 func (screen *BrowserScreen) setMessage(msg string) {
