@@ -401,66 +401,53 @@ func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
 func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
 	// Jump up 'distance' lines
 	visPaths, err := screen.db.buildVisiblePathSlice()
-	if err == nil {
-		findPath := screen.currentPath
-		for idx, pth := range visPaths {
-			startJump := true
-			for i := range pth {
-				if len(screen.currentPath) > i && pth[i] != screen.currentPath[i] {
-					startJump = false
-				}
-			}
-			if startJump {
-				distance--
-				if distance == 0 {
-					screen.currentPath = visPaths[len(visPaths)-1-idx]
-					break
-				}
+	if err != nil {
+		return true
+	}
+	startJump := false
+	for idx := len(visPaths) - 1; idx > 0; idx-- {
+		pth := visPaths[idx]
+		for i := range pth {
+			if len(screen.currentPath) == i+1 && pth[i] == screen.currentPath[i] {
+				startJump = true
 			}
 		}
-		isCurPath := true
-		for i := range screen.currentPath {
-			if screen.currentPath[i] != findPath[i] {
-				isCurPath = false
+		if startJump {
+			distance--
+			if distance == 0 {
+				screen.currentPath = visPaths[idx]
 				break
 			}
 		}
-		if isCurPath {
-			screen.currentPath = screen.db.getNextVisiblePath(nil)
-		}
+	}
+	if distance > 0 {
+		screen.currentPath = screen.db.getNextVisiblePath(nil)
 	}
 	return true
 }
 func (screen *BrowserScreen) jumpCursorDown(distance int) bool {
 	visPaths, err := screen.db.buildVisiblePathSlice()
-	if err == nil {
-		findPath := screen.currentPath
-		for idx, pth := range visPaths {
-			startJump := true
+	if err != nil {
+		return true
+	}
 
-			for i := range pth {
-				if len(screen.currentPath) > i && pth[i] != screen.currentPath[i] {
-					startJump = false
-				}
-			}
-			if startJump {
-				distance--
-				if distance == 0 {
-					screen.currentPath = visPaths[idx]
-					break
-				}
+	startJump := false
+	for idx, pth := range visPaths {
+		for i := range pth {
+			if len(screen.currentPath) == i+1 && pth[i] == screen.currentPath[i] {
+				startJump = true
 			}
 		}
-		isCurPath := true
-		for i := range screen.currentPath {
-			if screen.currentPath[i] != findPath[i] {
-				isCurPath = false
+		if startJump {
+			distance--
+			if distance == 0 {
+				screen.currentPath = visPaths[idx]
 				break
 			}
 		}
-		if isCurPath {
-			screen.currentPath = screen.db.getNextVisiblePath(nil)
-		}
+	}
+	if distance > 0 {
+		screen.currentPath = screen.db.getPrevVisiblePath(nil)
 	}
 	return true
 }
