@@ -31,6 +31,7 @@ type BrowserScreen struct {
 	currentPath    []string
 	currentType    int
 	message        string
+	filter         string
 	mode           BrowserMode
 	inputModal     *termboxUtil.InputModal
 	confirmModal   *termboxUtil.ConfirmModal
@@ -51,6 +52,7 @@ const (
 	modeChange        = 32  // 0000 0010 0000
 	modeChangeKey     = 33  // 0000 0010 0001
 	modeChangeVal     = 34  // 0000 0010 0010
+	modeFilter        = 35  // 0100 0010 0011
 	modeInsert        = 64  // 0000 0100 0000
 	modeInsertBucket  = 65  // 0000 0100 0001
 	modeInsertPair    = 68  // 0000 0100 0100
@@ -102,11 +104,11 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 
 	} else if event.Ch == 'g' {
 		// Jump to Beginning
-		screen.currentPath = screen.db.getNextVisiblePath(nil)
+		screen.currentPath = screen.db.getNextVisiblePath(nil, screen.filter)
 
 	} else if event.Ch == 'G' {
 		// Jump to End
-		screen.currentPath = screen.db.getPrevVisiblePath(nil)
+		screen.currentPath = screen.db.getPrevVisiblePath(nil, screen.filter)
 
 	} else if event.Key == termbox.KeyCtrlR {
 		screen.refreshDatabase()
@@ -155,6 +157,8 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 		} else if p != nil {
 			screen.startEditItem()
 		}
+	} else if event.Ch == '/' {
+		screen.startFilter()
 
 	} else if event.Ch == 'r' {
 		screen.startRenameItem()
@@ -216,6 +220,12 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 		screen.inputModal.HandleEvent(event)
 		if screen.inputModal.IsDone() {
 			b, p, _ := screen.db.getGenericFromPath(screen.currentPath)
+			if screen.mode == modeFilter {
+				screen.filter = screen.inputModal.GetValue()
+				if !screen.db.isVisiblePath(screen.currentPath, screen.filter) {
+					screen.currentPath = screen.currentPath[:len(screen.currentPath)-1]
+				}
+			}
 			if b != nil {
 				if screen.mode == modeChangeKey {
 					newName := screen.inputModal.GetValue()
@@ -261,8 +271,8 @@ func (screen *BrowserScreen) handleDeleteKeyEvent(event termbox.Event) int {
 	screen.confirmModal.HandleEvent(event)
 	if screen.confirmModal.IsDone() {
 		if screen.confirmModal.IsAccepted() {
-			holdNextPath := screen.db.getNextVisiblePath(screen.currentPath)
-			holdPrevPath := screen.db.getPrevVisiblePath(screen.currentPath)
+			holdNextPath := screen.db.getNextVisiblePath(screen.currentPath, screen.filter)
+			holdPrevPath := screen.db.getPrevVisiblePath(screen.currentPath, screen.filter)
 			if deleteKey(screen.currentPath) == nil {
 				screen.refreshDatabase()
 				// Move the current path endpoint appropriately
@@ -400,7 +410,7 @@ func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
 
 func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
 	// Jump up 'distance' lines
-	visPaths, err := screen.db.buildVisiblePathSlice()
+	visPaths, err := screen.db.buildVisiblePathSlice(screen.filter)
 	if err == nil {
 		findPath := screen.currentPath
 		for idx, pth := range visPaths {
@@ -426,13 +436,13 @@ func (screen *BrowserScreen) jumpCursorUp(distance int) bool {
 			}
 		}
 		if isCurPath {
-			screen.currentPath = screen.db.getNextVisiblePath(nil)
+			screen.currentPath = screen.db.getNextVisiblePath(nil, screen.filter)
 		}
 	}
 	return true
 }
 func (screen *BrowserScreen) jumpCursorDown(distance int) bool {
-	visPaths, err := screen.db.buildVisiblePathSlice()
+	visPaths, err := screen.db.buildVisiblePathSlice(screen.filter)
 	if err == nil {
 		findPath := screen.currentPath
 		for idx, pth := range visPaths {
@@ -459,14 +469,14 @@ func (screen *BrowserScreen) jumpCursorDown(distance int) bool {
 			}
 		}
 		if isCurPath {
-			screen.currentPath = screen.db.getNextVisiblePath(nil)
+			screen.currentPath = screen.db.getNextVisiblePath(nil, screen.filter)
 		}
 	}
 	return true
 }
 
 func (screen *BrowserScreen) moveCursorUp() bool {
-	newPath := screen.db.getPrevVisiblePath(screen.currentPath)
+	newPath := screen.db.getPrevVisiblePath(screen.currentPath, screen.filter)
 	if newPath != nil {
 		screen.currentPath = newPath
 		return true
@@ -474,7 +484,7 @@ func (screen *BrowserScreen) moveCursorUp() bool {
 	return false
 }
 func (screen *BrowserScreen) moveCursorDown() bool {
-	newPath := screen.db.getNextVisiblePath(screen.currentPath)
+	newPath := screen.db.getNextVisiblePath(screen.currentPath, screen.filter)
 	if newPath != nil {
 		screen.currentPath = newPath
 		return true
@@ -539,18 +549,18 @@ func (screen *BrowserScreen) drawFooter(style Style) {
 func (screen *BrowserScreen) buildLeftPane(style Style) {
 	screen.leftPaneBuffer = nil
 	if len(screen.currentPath) == 0 {
-		screen.currentPath = screen.db.getNextVisiblePath(nil)
+		screen.currentPath = screen.db.getNextVisiblePath(nil, screen.filter)
 	}
 	for i := range screen.db.buckets {
 		screen.leftPaneBuffer = append(screen.leftPaneBuffer, screen.bucketToLines(&screen.db.buckets[i], style)...)
 	}
-  // Find the cursor in the leftPane
-  for k, v := range screen.leftPaneBuffer {
-    if v.Fg == style.cursorFg {
-      screen.leftViewPort.scrollRow = k
-      break
-    }
-  }
+	// Find the cursor in the leftPane
+	for k, v := range screen.leftPaneBuffer {
+		if v.Fg == style.cursorFg {
+			screen.leftViewPort.scrollRow = k
+			break
+		}
+	}
 }
 
 func (screen *BrowserScreen) drawLeftPane(style Style) {
@@ -562,19 +572,19 @@ func (screen *BrowserScreen) drawLeftPane(style Style) {
 	screen.leftViewPort.bytesPerRow = w
 	screen.leftViewPort.numberOfRows = h - 2
 	termboxUtil.FillWithChar('=', 0, 1, w, 1, style.defaultFg, style.defaultBg)
-  startX, startY := 0, 3
+	startX, startY := 0, 3
 	screen.leftViewPort.firstRow = startY
-  treeOffset := 0
-  maxCursor := screen.leftViewPort.numberOfRows * 2 / 3
+	treeOffset := 0
+	maxCursor := screen.leftViewPort.numberOfRows * 2 / 3
 
-  if screen.leftViewPort.scrollRow > maxCursor {
-    treeOffset = screen.leftViewPort.scrollRow - maxCursor
-  }
-  if len(screen.leftPaneBuffer) > 0 {
-    for k, v := range screen.leftPaneBuffer[treeOffset:] {
-      termboxUtil.DrawStringAtPoint(v.Text, startX, (startY + k - 1), v.Fg, v.Bg)
-    }
-  }
+	if screen.leftViewPort.scrollRow > maxCursor {
+		treeOffset = screen.leftViewPort.scrollRow - maxCursor
+	}
+	if len(screen.leftPaneBuffer) > 0 {
+		for k, v := range screen.leftPaneBuffer[treeOffset:] {
+			termboxUtil.DrawStringAtPoint(v.Text, startX, (startY + k - 1), v.Fg, v.Bg)
+		}
+	}
 }
 
 func (screen *BrowserScreen) buildRightPane(style Style) {
@@ -679,6 +689,9 @@ func (screen *BrowserScreen) bucketToLines(bkt *BoltBucket, style Style) []Line 
 			ret = append(ret, screen.bucketToLines(&bkt.buckets[i], style)...)
 		}
 		for _, bp := range bkt.pairs {
+			if screen.filter != "" && !strings.Contains(bp.key, screen.filter) {
+				continue
+			}
 			pfg, pbg := style.defaultFg, style.defaultBg
 			if comparePaths(screen.currentPath, bp.GetPath()) {
 				pfg, pbg = style.cursorFg, style.cursorBg
@@ -714,6 +727,23 @@ func (screen *BrowserScreen) startDeleteItem() bool {
 		mod.SetText(termboxUtil.AlignText("This cannot be undone!", inpW-1, termboxUtil.AlignCenter))
 		screen.confirmModal = mod
 		screen.mode = modeDelete
+		return true
+	}
+	return false
+}
+
+func (screen *BrowserScreen) startFilter() bool {
+	_, _, e := screen.db.getGenericFromPath(screen.currentPath)
+	if e == nil {
+		w, h := termbox.Size()
+		inpW, inpH := (w / 2), 6
+		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
+		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		mod.SetTitle(termboxUtil.AlignText("Filter", inpW, termboxUtil.AlignCenter))
+		mod.SetValue(screen.filter)
+		mod.Show()
+		screen.inputModal = mod
+		screen.mode = modeFilter
 		return true
 	}
 	return false
