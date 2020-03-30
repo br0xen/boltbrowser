@@ -25,6 +25,7 @@ const DefaultDBOpenTimeout = time.Second
 var AppArgs struct {
 	DBOpenTimeout time.Duration
 	ReadOnly      bool
+	NoValue       bool
 }
 
 func init() {
@@ -63,6 +64,10 @@ func parseArgs() {
 				if val == "true" {
 					AppArgs.ReadOnly = true
 				}
+			case "-no-value":
+				if val == "true" {
+					AppArgs.NoValue = true
+				}
 			case "-help":
 				printUsage(nil)
 			default:
@@ -73,6 +78,8 @@ func parseArgs() {
 			switch parms[i] {
 			case "-readonly", "-ro":
 				AppArgs.ReadOnly = true
+			case "-no-value":
+				AppArgs.NoValue = true
 			case "-help":
 				printUsage(nil)
 			default:
@@ -89,6 +96,7 @@ func printUsage(err error) {
 	fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS] <filename(s)>\nOptions:\n", ProgramName)
 	fmt.Fprintf(os.Stderr, "  -timeout=duration\n        DB file open timeout (default 1s)\n")
 	fmt.Fprintf(os.Stderr, "  -ro, -readonly   \n        Open the DB in read-only mode\n")
+	fmt.Fprintf(os.Stderr, "  -no-value        \n        Do not display a value in left pane\n")
 }
 
 func main() {

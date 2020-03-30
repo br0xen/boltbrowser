@@ -684,7 +684,12 @@ func (screen *BrowserScreen) bucketToLines(bkt *BoltBucket, style Style) []Line 
 				pfg, pbg = style.cursorFg, style.cursorBg
 			}
 			prPrefix := strings.Repeat(" ", len(bp.GetPath())*2)
-			pairString := fmt.Sprintf("%s%s: %s", prPrefix, stringify([]byte(bp.key)), stringify([]byte(bp.val)))
+			var pairString string
+			if AppArgs.NoValue {
+				pairString = fmt.Sprintf("%s%s", prPrefix, stringify([]byte(bp.key)))
+			} else {
+				pairString = fmt.Sprintf("%s%s: %s", prPrefix, stringify([]byte(bp.key)), stringify([]byte(bp.val)))
+			}
 			ret = append(ret, Line{pairString, pfg, pbg})
 		}
 	} else {
