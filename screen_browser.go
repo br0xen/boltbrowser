@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -534,10 +535,22 @@ func (screen *BrowserScreen) drawScreen(style Style) {
 
 func (screen *BrowserScreen) drawHeader(style Style) {
 	width, _ := termbox.Size()
-	headerString := ProgramName + ": " + currentFilename
-	spaces := strings.Repeat(" ", ((width-len(headerString))/2)+1)
+	headerStringLen := func(fileName string) int {
+		return len(ProgramName) + len(fileName) + 1
+	}
+	headerFileName := currentFilename
+	if headerStringLen(headerFileName) > width {
+		headerFileName = filepath.Base(headerFileName)
+	}
+	headerString := ProgramName + ": " + headerFileName
+	count := ((width-len(headerString))/2)+1
+	if count < 0 {
+		count = 0
+	}
+	spaces := strings.Repeat(" ", count)
 	termboxUtil.DrawStringAtPoint(fmt.Sprintf("%s%s%s", spaces, headerString, spaces), 0, 0, style.titleFg, style.titleBg)
 }
+
 func (screen *BrowserScreen) drawFooter(style Style) {
 	if screen.messageTimeout > 0 && time.Since(screen.messageTime) > screen.messageTimeout {
 		screen.clearMessage()
