@@ -26,6 +26,7 @@ type BoltBucket struct {
 	parent    *BoltBucket
 	expanded  bool
 	errorFlag bool
+	isRoot    bool
 }
 
 /*
@@ -268,7 +269,7 @@ func (bd *BoltDB) refreshDatabase() *BoltDB {
 	// Reload the database into memBolt
 	memBolt = new(BoltDB)
 	db.View(func(tx *bolt.Tx) error {
-		return tx.ForEach(func(nm []byte, b *bolt.Bucket) error {
+		err := tx.ForEach(func(nm []byte, b *bolt.Bucket) error {
 			bb, err := readBucket(b)
 			if err == nil {
 				bb.name = string(nm)
@@ -278,6 +279,18 @@ func (bd *BoltDB) refreshDatabase() *BoltDB {
 			}
 			return err
 		})
+		if err != nil {
+			// Check if there are key/values directly in the root
+			bb, err := readBucket(tx.Cursor().Bucket())
+			if err == nil {
+				bb.isRoot = true
+				bb.expanded = true
+				memBolt.buckets = append(memBolt.buckets, *bb)
+				return nil
+			}
+			return err
+		}
+		return err
 	})
 	return memBolt
 }
@@ -400,6 +413,10 @@ func deleteKey(path []string) error {
 			return tx.DeleteBucket([]byte(path[0]))
 		}
 		b := tx.Bucket([]byte(path[0]))
+		if b == nil {
+			// Invalid path, try for the root bucket
+			b = tx.Cursor().Bucket()
+		}
 		if b != nil {
 			if len(path) > 1 {
 				for i := range path[1 : len(path)-1] {
@@ -426,6 +443,9 @@ func deleteKey(path []string) error {
 
 func readBucket(b *bolt.Bucket) (*BoltBucket, error) {
 	bb := new(BoltBucket)
+	if b == nil {
+		return nil, errors.New("No bucket passed")
+	}
 	b.ForEach(func(k, v []byte) error {
 		if v == nil {
 			tb, err := readBucket(b.Bucket(k))
@@ -454,9 +474,13 @@ func renameBucket(path []string, name string) error {
 		// len(b.path)-1 is the key we need to delete,
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
+		if b == nil {
+			// Invalid path, try for the root bucket
+			b = tx.Cursor().Bucket()
+		}
 		if b != nil {
 			if len(path) > 1 {
-				for i := range path[1:len(path)] {
+				for i := range path[1:] {
 					b = b.Bucket([]byte(path[i+1]))
 					if b == nil {
 						return errors.New("renameBucket: Invalid Path")
@@ -504,6 +528,10 @@ func updatePairKey(path []string, k string) error {
 		// len(b.path)-1 is the key for the pair we're updating,
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
+		if b == nil {
+			// Invalid path, try for the root bucket
+			b = tx.Cursor().Bucket()
+		}
 		if b != nil {
 			if len(path) > 0 {
 				for i := range path[1 : len(path)-1] {
@@ -536,6 +564,10 @@ func updatePairValue(path []string, v string) error {
 		// len(b.GetPath())-1 is the key for the pair we're updating,
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
+		if b == nil {
+			// Invalid path, try for the root bucket
+			b = tx.Cursor().Bucket()
+		}
 		if b != nil {
 			if len(path) > 0 {
 				for i := range path[1 : len(path)-1] {
@@ -560,7 +592,7 @@ func insertBucket(path []string, n string) error {
 	}
 	// Inserts a new bucket named 'n' at 'path'
 	err := db.Update(func(tx *bolt.Tx) error {
-		if len(path) == 0 {
+		if len(path) == 0 || path[0] == "" {
 			// insert at root
 			_, err := tx.CreateBucket([]byte(n))
 			if err != nil {
@@ -606,6 +638,10 @@ func insertPair(path []string, k string, v string) error {
 		}
 		var err error
 		b := tx.Bucket([]byte(path[0]))
+		if b == nil {
+			// Invalid path, try for the root bucket
+			b = tx.Cursor().Bucket()
+		}
 		if b != nil {
 			if len(path) > 0 {
 				for i := 1; i < len(path); i++ {
@@ -630,6 +666,10 @@ func exportValue(path []string, fName string) error {
 		// len(b.path)-1 is the key whose value we want to export
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
+		if b == nil {
+			// Invalid path, try for the root bucket
+			b = tx.Cursor().Bucket()
+		}
 		if b != nil {
 			if len(path) > 1 {
 				for i := range path[1 : len(path)-1] {
@@ -652,6 +692,10 @@ func exportJSON(path []string, fName string) error {
 		// len(b.path)-1 is the key whose value we want to export
 		// the rest are buckets leading to that key
 		b := tx.Bucket([]byte(path[0]))
+		if b == nil {
+			// Invalid path, try for the root bucket
+			b = tx.Cursor().Bucket()
+		}
 		if b != nil {
 			if len(path) > 1 {
 				for i := range path[1 : len(path)-1] {

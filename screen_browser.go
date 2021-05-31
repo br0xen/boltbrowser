@@ -242,7 +242,7 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 			} else if p != nil {
 				if screen.mode == modeChangeKey {
 					newKey := screen.inputModal.GetValue()
-					if updatePairKey(screen.currentPath, newKey) != nil {
+					if err := updatePairKey(screen.currentPath, newKey); err != nil {
 						screen.setMessage("Error occurred updating Pair.")
 					} else {
 						p.key = newKey
@@ -252,7 +252,7 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 					}
 				} else if screen.mode == modeChangeVal {
 					newVal := screen.inputModal.GetValue()
-					if updatePairValue(screen.currentPath, newVal) != nil {
+					if err := updatePairValue(screen.currentPath, newVal); err != nil {
 						screen.setMessage("Error occurred updating Pair.")
 					} else {
 						p.val = newVal
@@ -543,7 +543,7 @@ func (screen *BrowserScreen) drawHeader(style Style) {
 		headerFileName = filepath.Base(headerFileName)
 	}
 	headerString := ProgramName + ": " + headerFileName
-	count := ((width-len(headerString))/2)+1
+	count := ((width - len(headerString)) / 2) + 1
 	if count < 0 {
 		count = 0
 	}
