@@ -280,6 +280,7 @@ func (bd *BoltDB) refreshDatabase() *BoltDB {
 			return err
 		})
 		if err != nil {
+			memBolt = new(BoltDB)
 			// Check if there are key/values directly in the root
 			bb, err := readBucket(tx.Cursor().Bucket())
 			if err == nil {
