@@ -21,12 +21,12 @@ Then you'll have `boltbrowser` in your path.
 Pre-built Binaries
 ------------------
 Here are pre-built binaries:
-* [Linux 64-bit](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.linux64.zip)
-* [Linux 32-bit](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.linux386.zip)
-* [Linux Arm](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.linuxarm.zip)
-* [Windows 64-bit](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.win64.exe.zip)
-* [Windows 32-bit](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.win386.exe.zip)
-* [Mac OS](https://git.bullercodeworks.com/brian/boltbrowser/releases/download/2.0/boltbrowser.darwin64.zip)
+* [Linux 64-bit](https://git.bullercodeworks.com/attachments/29367198-79f9-4fb3-9a66-f71a0e605006)
+* [Linux 32-bit](https://git.bullercodeworks.com/attachments/ba8b9116-a013-431d-b266-66dfa16f2a88)
+* [Linux Arm](https://git.bullercodeworks.com/attachments/795108a6-79e3-4723-b9a8-83803bc27f20)
+* [Windows 64-bit](https://git.bullercodeworks.com/attachments/649993d9-bf2c-46ea-98dd-1994f1c73020)
+* [Windows 32-bit](https://git.bullercodeworks.com/attachments/c1662c27-524c-465a-8739-b021fb15066b)
+* [Mac OS](https://git.bullercodeworks.com/attachments/10270b6f-9316-446d-8ab4-4022142323b3)
 
 Usage
 -----
