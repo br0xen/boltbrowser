@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boltdb/bolt"
 	"github.com/nsf/termbox-go"
+	bolt "go.etcd.io/bbolt"
 )
 
 var ProgramName = "boltbrowser"
