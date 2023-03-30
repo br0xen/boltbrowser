@@ -7,4 +7,4 @@ require (
 	golang.org/x/sys v0.6.0 // indirect
 )
 
-go 1.13
+go 1.20
