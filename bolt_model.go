@@ -682,7 +682,7 @@ func exportValue(path []string, fName string) error {
 			}
 			bk := []byte(path[len(path)-1])
 			v := b.Get(bk)
-			return writeToFile(fName, string(v)+"\n", os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+			return writeToFile(fName, string(v), os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
 		}
 		return errors.New("exportValue: Invalid Bucket")
 	})
