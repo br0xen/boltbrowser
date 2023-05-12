@@ -756,3 +756,36 @@ func writeToFile(fn, s string, mode int) error {
 	}
 	return nil
 }
+
+func importValue(path []string, fName string) error {
+	if AppArgs.ReadOnly {
+		return errors.New("DB is in Read-Only Mode")
+	}
+	return db.Update(func(tx *bolt.Tx) error {
+		// len(b.GetPath())-1 is the key for the pair we're updating,
+		// the rest are buckets leading to that key
+		b := tx.Bucket([]byte(path[0]))
+		if b == nil {
+			// Invalid path, try for the root bucket
+			b = tx.Cursor().Bucket()
+		}
+		if b != nil {
+			if len(path) > 0 {
+				for i := range path[1 : len(path)-1] {
+					b = b.Bucket([]byte(path[i+1]))
+					if b == nil {
+						return errors.New("updatePairValue: Invalid Path")
+					}
+				}
+			}
+			// Now update the last key in the path
+			bk := []byte(path[len(path)-1])
+			v, err := os.ReadFile(fName)
+			if err != nil {
+				return err
+			}
+			return b.Put(bk, v)
+		}
+		return errors.New("importValue: Invalid Bucket")
+	})
+}
