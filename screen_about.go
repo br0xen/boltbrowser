@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/br0xen/termbox-util"
+	termboxUtil "github.com/br0xen/termbox-util"
 	"github.com/nsf/termbox-go"
 )
 
@@ -111,9 +111,9 @@ func (screen *AboutScreen) drawScreen(style Style) {
 		{"e", "edit value of pair"},
 		{"r", "rename pair/bucket"},
 		{"", ""},
-		{"", ""},
 		{"D", "delete item"},
 		{"x,X", "export as string/json to file"},
+		{"i", "import file to value of pair"},
 		{"", ""},
 		{"?", "this screen"},
 		{"q", "quit program"},

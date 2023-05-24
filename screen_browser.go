@@ -61,9 +61,10 @@ const (
 	modeInsertPairVal = 70  // 0000 0100 0110
 	modeDelete        = 256 // 0001 0000 0000
 	modeModToParent   = 8   // 0000 0000 1000
-	modeExport        = 512 // 0010 0000 0000
-	modeExportValue   = 513 // 0010 0000 0001
-	modeExportJSON    = 514 // 0010 0000 0010
+	modeIO            = 512 // 0010 0000 0000
+	modeIOExportValue = 513 // 0010 0000 0001
+	modeIOExportJSON  = 514 // 0010 0000 0010
+	modeIOImportValue = 516 // 0010 0000 0100
 )
 
 /*
@@ -88,8 +89,8 @@ func (screen *BrowserScreen) handleKeyEvent(event termbox.Event) int {
 		return screen.handleInsertKeyEvent(event)
 	} else if screen.mode == modeDelete {
 		return screen.handleDeleteKeyEvent(event)
-	} else if screen.mode&modeExport == modeExport {
-		return screen.handleExportKeyEvent(event)
+	} else if screen.mode&modeIO == modeIO {
+		return screen.handleIOKeyEvent(event)
 	}
 	return BrowserScreenIndex
 }
@@ -204,11 +205,14 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 	} else if event.Ch == 'D' {
 		screen.startDeleteItem()
 	} else if event.Ch == 'x' {
-		// Export Value
+		// Export Value to a file
 		screen.startExportValue()
 	} else if event.Ch == 'X' {
 		// Export Key/Value (or Bucket) as JSON
 		screen.startExportJSON()
+	} else if event.Ch == 'i' {
+		// Import value from a file
+		screen.startImportValue()
 	}
 	return BrowserScreenIndex
 }
@@ -374,7 +378,7 @@ func (screen *BrowserScreen) handleInsertKeyEvent(event termbox.Event) int {
 	return BrowserScreenIndex
 }
 
-func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
+func (screen *BrowserScreen) handleIOKeyEvent(event termbox.Event) int {
 	if event.Key == termbox.KeyEsc {
 		screen.mode = modeBrowse
 		screen.inputModal.Clear()
@@ -383,22 +387,31 @@ func (screen *BrowserScreen) handleExportKeyEvent(event termbox.Event) int {
 		if screen.inputModal.IsDone() {
 			b, p, _ := screen.db.getGenericFromPath(screen.currentPath)
 			fileName := screen.inputModal.GetValue()
-			if screen.mode&modeExportValue == modeExportValue {
+			if screen.mode&modeIOExportValue == modeIOExportValue {
 				// Exporting the value
 				if p != nil {
 					if err := exportValue(screen.currentPath, fileName); err != nil {
-						//screen.setMessage("Error Exporting to file " + fileName + ".")
+						//screen.setMessage("Error exporting to file " + fileName + ".")
 						screen.setMessage(err.Error())
 					} else {
 						screen.setMessage("Value exported to file: " + fileName)
 					}
 				}
-			} else if screen.mode&modeExportJSON == modeExportJSON {
+			} else if screen.mode&modeIOExportJSON == modeIOExportJSON {
 				if b != nil || p != nil {
 					if exportJSON(screen.currentPath, fileName) != nil {
-						screen.setMessage("Error Exporting to file " + fileName + ".")
+						screen.setMessage("Error exporting to file " + fileName + ".")
 					} else {
 						screen.setMessage("Value exported to file: " + fileName)
+					}
+				}
+			} else if screen.mode&modeIOImportValue == modeIOImportValue {
+				if p != nil {
+					if err := importValue(screen.currentPath, fileName); err != nil {
+						screen.setMessage(err.Error())
+					} else {
+						screen.setMessage("Value imported from file: " + fileName)
+						screen.refreshDatabase()
 					}
 				}
 			}
@@ -907,7 +920,7 @@ func (screen *BrowserScreen) startExportValue() bool {
 		mod.SetValue("")
 		mod.Show()
 		screen.inputModal = mod
-		screen.mode = modeExportValue
+		screen.mode = modeIOExportValue
 		return true
 	}
 	screen.setMessage("Couldn't do string export on " + screen.currentPath[len(screen.currentPath)-1] + "(did you mean 'X'?)")
@@ -930,9 +943,27 @@ func (screen *BrowserScreen) startExportJSON() bool {
 		}
 		mod.Show()
 		screen.inputModal = mod
-		screen.mode = modeExportJSON
+		screen.mode = modeIOExportJSON
 		return true
 	}
+	return false
+}
+
+func (screen *BrowserScreen) startImportValue() bool {
+	_, p, e := screen.db.getGenericFromPath(screen.currentPath)
+	if e == nil && p != nil {
+		w, h := termbox.Size()
+		inpW, inpH := (w / 2), 6
+		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
+		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Import value of '%s' from:", p.key), inpW, termboxUtil.AlignCenter))
+		mod.SetValue("")
+		mod.Show()
+		screen.inputModal = mod
+		screen.mode = modeIOImportValue
+		return true
+	}
+	screen.setMessage("Couldn't do import on " + screen.currentPath[len(screen.currentPath)-1] + ", must be a pair.")
 	return false
 }
 

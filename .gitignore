@@ -28,6 +28,7 @@ build
 # Binaries
 *.exe
 boltbrowser
+boltbrowser.*
 
 # Test Database
 test.db
