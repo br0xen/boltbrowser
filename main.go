@@ -7,15 +7,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boltdb/bolt"
 	"github.com/nsf/termbox-go"
+	"go.etcd.io/bbolt"
 )
 
 var ProgramName = "boltbrowser"
 var VersionNum = 2.0
 
 var databaseFiles []string
-var db *bolt.DB
+var db *bbolt.DB
 var memBolt *BoltDB
 
 var currentFilename string
@@ -114,8 +114,8 @@ func main() {
 
 	for _, databaseFile := range databaseFiles {
 		currentFilename = databaseFile
-		db, err = bolt.Open(databaseFile, 0600, &bolt.Options{Timeout: AppArgs.DBOpenTimeout})
-		if err == bolt.ErrTimeout {
+		db, err = bbolt.Open(databaseFile, 0600, &bbolt.Options{Timeout: AppArgs.DBOpenTimeout})
+		if err == bbolt.ErrTimeout {
 			termbox.Close()
 			fmt.Printf("File %s is locked. Make sure it's not used by another app and try again\n", databaseFile)
 			os.Exit(1)
