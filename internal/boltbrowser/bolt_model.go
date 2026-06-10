@@ -27,6 +27,7 @@ type BoltBucket struct {
 	expanded  bool
 	errorFlag bool
 	isRoot    bool
+	sequence  uint64
 }
 
 /*
@@ -273,6 +274,7 @@ func (bd *BoltDB) refreshDatabase() *BoltDB {
 			bb, err := readBucket(b)
 			if err == nil {
 				bb.name = string(nm)
+				bb.sequence = b.Sequence()
 				bb.expanded = false
 				memBolt.buckets = append(memBolt.buckets, *bb)
 				return nil
@@ -453,6 +455,7 @@ func readBucket(b *bbolt.Bucket) (*BoltBucket, error) {
 			tb.parent = bb
 			if err == nil {
 				tb.name = string(k)
+				tb.sequence = b.Bucket(k).Sequence()
 				bb.buckets = append(bb.buckets, *tb)
 			}
 		} else {
@@ -583,6 +586,34 @@ func updatePairValue(path []string, v string) error {
 			return err
 		}
 		return errors.New("updatePairValue: Invalid Path")
+	})
+	return err
+}
+
+func updateBucketSequence(path []string, seq uint64) error {
+	if AppArgs.ReadOnly {
+		return errors.New("DB is in Read-Only Mode")
+	}
+	err := db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(path[0]))
+		if b == nil {
+			// Invalid path, try for the root bucket
+			b = tx.Cursor().Bucket()
+		}
+		if b != nil {
+			if len(path) > 0 {
+				for i := range path[1:] {
+					b = b.Bucket([]byte(path[i+1]))
+					if b == nil {
+						return errors.New("updateBucketSequence: Invalid Path")
+					}
+				}
+			}
+			// Now update the sequence
+			err := b.SetSequence(seq)
+			return err
+		}
+		return errors.New("updateBucketSequence: Invalid Path")
 	})
 	return err
 }
