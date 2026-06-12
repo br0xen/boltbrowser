@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,6 +55,7 @@ const (
 	modeChangeKey     = 33  // 0000 0010 0001
 	modeChangeVal     = 34  // 0000 0010 0010
 	modeFilter        = 35  // 0100 0010 0011
+	modeChangeSeq     = 36  // 0100 0010 0100
 	modeInsert        = 64  // 0000 0100 0000
 	modeInsertBucket  = 65  // 0000 0100 0001
 	modeInsertPair    = 68  // 0000 0100 0100
@@ -155,7 +157,7 @@ func (screen *BrowserScreen) handleBrowseKeyEvent(event termbox.Event) int {
 	} else if event.Ch == 'e' {
 		b, p, _ := screen.db.getGenericFromPath(screen.currentPath)
 		if b != nil {
-			screen.setMessage("Cannot edit a bucket, did you mean to (r)ename?")
+			screen.startEditBucketSequence()
 		} else if p != nil {
 			screen.startEditItem()
 		}
@@ -241,6 +243,21 @@ func (screen *BrowserScreen) handleInputKeyEvent(event termbox.Event) int {
 						screen.currentPath[len(screen.currentPath)-1] = b.name
 						screen.setMessage("Bucket Renamed!")
 						screen.refreshDatabase()
+					}
+				} else if screen.mode == modeChangeSeq {
+					newSeqStr := screen.inputModal.GetValue()
+
+					newSeq, err := strconv.ParseUint(newSeqStr, 10, 64)
+					if err != nil {
+						screen.setMessage("Invalid sequence value.")
+					} else {
+						if err := updateBucketSequence(screen.currentPath, newSeq); err != nil {
+							screen.setMessage("Error occurred updating Sequence.")
+						} else {
+							b.sequence = newSeq
+							screen.setMessage("Sequence updated!")
+							screen.refreshDatabase()
+						}
 					}
 				}
 			} else if p != nil {
@@ -624,6 +641,8 @@ func (screen *BrowserScreen) buildRightPane(style Style) {
 				Line{fmt.Sprintf("Buckets: %d", len(b.buckets)), style.defaultFg, style.defaultBg})
 			screen.rightPaneBuffer = append(screen.rightPaneBuffer,
 				Line{fmt.Sprintf("Pairs: %d", len(b.pairs)), style.defaultFg, style.defaultBg})
+			screen.rightPaneBuffer = append(screen.rightPaneBuffer,
+				Line{fmt.Sprintf("Sequence: %d", b.sequence), style.defaultFg, style.defaultBg})
 		} else if p != nil {
 			screen.rightPaneBuffer = append(screen.rightPaneBuffer,
 				Line{fmt.Sprintf("Path: %s", strings.Join(stringifyPath(p.GetPath()), " → ")), style.defaultFg, style.defaultBg})
@@ -770,6 +789,23 @@ func (screen *BrowserScreen) startFilter() bool {
 		mod.Show()
 		screen.inputModal = mod
 		screen.mode = modeFilter
+		return true
+	}
+	return false
+}
+
+func (screen *BrowserScreen) startEditBucketSequence() bool {
+	b, _, e := screen.db.getGenericFromPath(screen.currentPath)
+	if e == nil {
+		w, h := termbox.Size()
+		inpW, inpH := (w / 2), 6
+		inpX, inpY := ((w / 2) - (inpW / 2)), ((h / 2) - inpH)
+		mod := termboxUtil.CreateInputModal("", inpX, inpY, inpW, inpH, termbox.ColorWhite, termbox.ColorBlack)
+		mod.SetTitle(termboxUtil.AlignText(fmt.Sprintf("Set sequence for '%s'", b.name), inpW, termboxUtil.AlignCenter))
+		mod.SetValue(strconv.Itoa(int(b.sequence)))
+		mod.Show()
+		screen.inputModal = mod
+		screen.mode = modeChangeSeq
 		return true
 	}
 	return false
